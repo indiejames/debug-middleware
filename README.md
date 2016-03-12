@@ -4,7 +4,7 @@ A Clojure library that provides NREPL middleware for the VS Code Clojure debugge
 
 ## Usage
 
-Add a this library as a dependency in your project.clj file and use it
+Add this library as a dependency in your project.clj file and use it
 in the :repl-options:
 
 ```clojure
