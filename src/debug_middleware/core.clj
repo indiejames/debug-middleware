@@ -34,6 +34,11 @@
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] (:op msg)))
 
+(defmethod handle-msg "set-breakpoint"
+  [handler msg]
+  (println "SETTING BREAKPOINT")
+  {:result "BREAKPOINT SET"})
+
 (defmethod handle-msg :default 
   [handler msg]
   (handler msg))
