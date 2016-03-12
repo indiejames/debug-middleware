@@ -30,6 +30,14 @@
            strata (when ref-type (.availableStrata ref-type))]
        (when strata (println (.name ref-type) ":  Strata: " strata)))
      vm)))
+     
+;; Returns a handler for operation.
+(defmulti handle-msg (fn [handler msg] (:op msg)))
+
+(defmethod handle-msg :default 
+  [handler msg]
+  (handler msg))
+
   
 (defn debug-middleware
  "Lein middleware to handle debug requests." 
@@ -38,8 +46,7 @@
  (setup-debugger)
  
  (fn [msg] 
-  (let [msg (assoc msg :code "(+ 3 4)")]
-    (handler msg))))
+  (handle-msg handler msg)))
     
 (set-descriptor!
   #'debug-middleware
