@@ -1,5 +1,7 @@
 (ns debug-middleware.core 
- (:require [clojure.tools.nrepl.middleware :refer [set-descriptor!]])
+ (:require [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
+           [clojure.tools.nrepl.transport :as t]
+           [clojure.tools.nrepl.misc :refer [response-for returning]])
  (:import com.sun.jdi.Bootstrap))
  
 (def vm-manager-atom
@@ -34,10 +36,18 @@
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] (:op msg)))
 
-(defmethod handle-msg "set-breakpoint"
+(defmethod handle-msg "set-breakpoint-bak"
   [handler msg]
   (println "SETTING BREAKPOINT")
-  {:result "BREAKPOINT SET"})
+  (println msg)
+  (let [res (handler msg)]
+   (println res)
+   (assoc res :result "BREAKPOINT SET")))
+   
+(defmethod handle-msg "set-breakpoint"
+  [handler {:keys [op session interrupt-id id transport] :as msg}]
+  (println "SETTING BREAKPOINT")
+  (t/send transport (response-for msg :status "BREAKPOINT SET")))
 
 (defmethod handle-msg :default 
   [handler msg]
@@ -57,6 +67,10 @@
   #'debug-middleware
   {:expects #{}
    :requires #{}
-   :handles #{}})
+   :handles {"set-breakpoint"
+                {:doc "Set a breakpoint"
+                 :requires {"path" "The path to the source file"
+                            "line" "The line at which to set the breakpoint"}
+                 :returns {"result" "The result message"}}}}) 
   
   
