@@ -57,6 +57,13 @@
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] (:op msg)))
 
+(defmethod handle-msg "require-namespace"
+  [handler {:keys [op namespace session interrup-id id transport] :as msg}]
+  (println "REQUIRING NAMESPACE " namespace)
+  (let [msg (assoc msg :op "eval" :code (str "(require '" namespace ")"))
+        resp (handler msg)]
+    (assoc resp :op "require-namespace" :namespace namespace)))
+
 (defmethod handle-msg "set-breakpoint"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
   (println "SETTING BREAKPOINT")
@@ -65,15 +72,18 @@
         ref-types (.allClasses @vm-atom)]
     (doseq [ref-type ref-types]
       (let [name (.name ref-type)]
-        (println "NAME: " name) 
-        (when (or (re-find #"repl-test" name) 
-                  (re-find #"middleware" name))
-          (println ">>>>>>>>>>>>>>>> FOUND NAME: " name))
-        (try 
-          (let [source-names (.sourceNames ref-type "Clojure")]
-            (println "SOURCE NAMES: " source-names))
-          (catch Exception e
-            (println "Can't get source"))))))
+        ; (println "NAME: " name) 
+        (when (re-find #"repl_test" name) 
+          (println ">>>>>>>>>>>>>>>> FOUND NAME: " name)
+          (try 
+         ;; get source names for all the classes with strata type "Clojure"
+           (let [source-names (.sourceNames ref-type "Clojure")
+                 source-paths (.sourcePaths ref-type "Clojure")]
+             (println "SOURCE NAMES: " source-names)
+             (println "SOURCE PATHS: " source-paths))
+           (catch Exception e
+             (println "Can't get source")))))))
+       
      
     ;     cloj-ref-types (filter (fn [rt]
     ;                                (let [strata (set (.availableStrata rt))]
@@ -111,7 +121,11 @@
   #'debug-middleware
   {:expects #{}
    :requires #{}
-   :handles {"set-breakpoint"
+   :handles {"require-namespace"
+                {:doc "Require a namespace to force loading so it will be available for debugging"
+                 :requires {"namespace" "The namespace to be required"}
+                 :returns {"result" "A map containing :msg :ok or :error msg}"}}
+             "set-breakpoint"
                 {:doc "Set a breakpoint"
                  :requires {"path" "The path to the source file"
                             "line" "The line at which to set the breakpoint"}
