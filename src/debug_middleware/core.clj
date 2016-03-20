@@ -1,7 +1,8 @@
 (ns debug-middleware.core 
  (:require [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
            [clojure.tools.nrepl.transport :as t]
-           [clojure.tools.nrepl.misc :refer [response-for returning]])
+           [clojure.tools.nrepl.misc :refer [response-for returning]]
+           [clojure.core.async :refer [thread]])
  (:import com.sun.jdi.Bootstrap
           com.sun.jdi.request.BreakpointRequest))
  
@@ -12,6 +13,25 @@
 (def vm-atom
  "Atom to hold the virutal machine"
  (atom nil))
+ 
+(defn listen-for-events
+  "List for events on the event queue and handle them."
+  [evt-queue]
+  (println "Listening for events....")
+  (loop [evt-set (.remove evt-queue)]
+    (println "Got an event............")
+    (let [events (iterator-seq (.eventIterator evt-set))]
+      (println "Handling event ==============================")
+      (doseq [evt events
+               :let [evt-req (.request evt)]]
+        (cond 
+          (instance? BreakpointRequest evt-req)
+          (let [line (-> evt-req .location .lineNumber)]
+            (println "Breakpoint hit at line " line))
+          
+          :default
+          (println "Unknown event=============================="))))
+    (recur (.remove evt-queue))))
  
 (defn setup-debugger
  "Intialize the debugger."
@@ -28,14 +48,9 @@
        _ (when port-arg (.setValue port-arg 8030))]
    (when-let [vm (when port-arg (.attach connector params-map))]
      (println "Attached to process " (.name vm))
-     (let [ref-types (.allClasses vm)
-           ref-type (some (fn [rt]
-                             (let [strata (set (.availableStrata rt))]
-                               (when (contains? strata "Clojure")
-                                 rt)))
-                          ref-types)
-           strata (when ref-type (.availableStrata ref-type))]
-       (when strata (println (.name ref-type) ":  Strata: " strata)))
+     (let [evt-req-mgr (.eventRequestManager vm)
+           evt-queue (.eventQueue vm)]
+       (thread (listen-for-events evt-queue)))
      vm)))
      
 (defn find-location-in-ref-type
@@ -63,26 +78,65 @@
   (let [msg (assoc msg :op "eval" :code (str "(require '" namespace ")"))
         resp (handler msg)]
     (assoc resp :op "require-namespace" :namespace namespace)))
+    
+(defn ref-type-has-src-path?
+ "Returns true if the given reference type has a src file matching the given path."
+ [ref-type src-path]
+ (try 
+    (when-let [src-paths (.sourcePaths ref-type "Clojure")]
+      (some (fn [path] (.endsWith src-path path)) 
+            src-paths))
+    (catch Exception e)))
+
+(defn ref-type-matching-location
+  "Returns the matching line location for the reference type, or nil if none exists."
+  [ref-type line]
+  (let [locs (.allLineLocations ref-type)]
+    (some (fn [loc] (when (= (.lineNumber loc "Clojure") line) loc)) 
+          locs)))
+
+(defn find-loc-for-src-line
+  "Find the ref-type that matches the given src file path and line."
+  [src-path line]
+  (let [ref-types (.allClasses @vm-atom)]
+    (some (fn [ref-type]
+            (when (ref-type-has-src-path? ref-type src-path)
+              (do
+                (println "Ref type has src path.....")
+                (ref-type-matching-location ref-type line))))
+          ref-types)))
 
 (defmethod handle-msg "set-breakpoint"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
   (println "SETTING BREAKPOINT")
-  (let [line (get "line" msg)
-        path (get "path" msg)
-        ref-types (.allClasses @vm-atom)]
-    (doseq [ref-type ref-types]
-      (let [name (.name ref-type)]
-        ; (println "NAME: " name) 
-        (when (re-find #"repl_test" name) 
-          (println ">>>>>>>>>>>>>>>> FOUND NAME: " name)
-          (try 
-         ;; get source names for all the classes with strata type "Clojure"
-           (let [source-names (.sourceNames ref-type "Clojure")
-                 source-paths (.sourcePaths ref-type "Clojure")]
-             (println "SOURCE NAMES: " source-names)
-             (println "SOURCE PATHS: " source-paths))
-           (catch Exception e
-             (println "Can't get source")))))))
+  (println "MSG: " msg)
+  (let [{:keys [line path]} msg
+        loc (find-loc-for-src-line path line)]
+     (when loc
+       (let [_ (println "Found location...............")
+             _ (println loc)
+             evt-req-mgr (.eventRequestManager @vm-atom)
+             breq (.createBreakpointRequest evt-req-mgr loc)
+             ;; Changed this from SUSPEND_ALL to SUSPEND_EVENT_THREAD because I think it is freezing
+             ;; the event queue processing thread as well. Not sure how the example I got this from
+             ;; could work.
+             _ (.setSuspendPolicy breq com.sun.jdi.request.BreakpointRequest/SUSPEND_EVENT_THREAD)
+             _ (.enable breq)])))
+    ;          evt-queue (.eventQueue @vm-atom)])))
+        ; ref-types (.allClasses @vm-atom)]
+    ; (doseq [ref-type ref-types]
+    ;   (let [name (.name ref-type)]
+    ;     ; (println "NAME: " name) 
+    ;     (when (re-find #"repl_test" name)
+    ;       (println ">>>>>>>>>>>>>>>> FOUND NAME: " name)
+    ;       (try 
+    ;      ;; get source paths for all the classes with strata type "Clojure"
+    ;        (let [source-names (.sourceNames ref-type "Clojure")
+    ;              source-paths (.sourcePaths ref-type "Clojure")]
+    ;          (println "SOURCE NAMES: " source-names)
+    ;          (println "SOURCE PATHS: " source-paths))
+    ;        (catch Exception e
+    ;          (println "Can't get source")))))))
        
      
     ;     cloj-ref-types (filter (fn [rt]
