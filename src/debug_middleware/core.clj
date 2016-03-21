@@ -70,7 +70,9 @@
       
 
 ;; Returns a handler for operation.
-(defmulti handle-msg (fn [handler msg] (:op msg)))
+(defmulti handle-msg (fn [handler msg] 
+                      (println "Received message " msg)
+                      (:op msg)))
 
 (defmethod handle-msg "require-namespace"
   [handler {:keys [op namespace session interrup-id id transport] :as msg}]
@@ -157,6 +159,13 @@
     
   (t/send transport (response-for msg :status "BREAKPOINT SET")))
 
+(defmethod handle-msg "continue"
+  [handler {:keys [op session interrupt-id id transport] :as msg}]
+  (println "Continue request received.")
+  (.resume @vm-atom)
+  (t/send transport (response-for msg :status "CONTINUED")))
+  
+
 (defmethod handle-msg :default 
   [handler msg]
   (handler msg))
@@ -179,6 +188,10 @@
                 {:doc "Require a namespace to force loading so it will be available for debugging"
                  :requires {"namespace" "The namespace to be required"}
                  :returns {"result" "A map containing :msg :ok or :error msg}"}}
+             "continue"
+                {:doc "Continue after a breakpoint"
+                 :requires {}
+                 :returns {"result" "The result message"}}
              "set-breakpoint"
                 {:doc "Set a breakpoint"
                  :requires {"path" "The path to the source file"
