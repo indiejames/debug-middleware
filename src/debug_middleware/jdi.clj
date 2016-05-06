@@ -1,6 +1,7 @@
 (ns debug-middleware.jdi
  "Functions that wrap the JDI debugging code."
- (:require [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
+ (:require [cheshire.core :refer :all]
+           [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
            [clojure.tools.nrepl.transport :as t]
            [clojure.tools.nrepl.misc :refer [response-for returning]]
            [clojure.core.async :refer [thread]])
@@ -13,7 +14,13 @@
            com.sun.jdi.LongValue
            com.sun.tools.jdi.LongValueImpl
            com.sun.tools.jdi.ObjectReferenceImpl))
-
+           
+(defn list-threads
+ "Returns the list of threads for the given VM."
+ [vm]
+ (let [thread-list (.allThreads vm)]
+   (map #(.name %) thread-list)))
+   
 (defn get-thread-with-name
  "Returns the ThreadReference with the given name"
  [vm name]
@@ -28,7 +35,7 @@
    (.frame thread-ref stack-pos)))
    
 (defn list-frames
- "Returns a list of frames for the thread with the given thread."
+ "Returns a list of frames for the thread with the given name."
  [vm name]
  (let [tr (get-thread-with-name vm name)]
   (.frames tr)))
@@ -101,9 +108,22 @@
          _ (println loc)
          evt-req-mgr (.eventRequestManager vm)
          breq (.createBreakpointRequest evt-req-mgr loc)]
-      (.setSuspendPolicy breq com.sun.jdi.request.BreakpointRequest/SUSPEND_ALL)
+      (.setSuspendPolicy breq com.sun.jdi.request.BreakpointRequest/SUSPEND_EVENT_THREAD)
       (.enable breq))
    loc))
+   
+(defn clear-breakpoints
+ "Delete all the breakpoints for a given source file."
+ [vm src]
+ (let [evt-req-manager (.eventRequestManager vm)
+       reqs (.breakpointRequests evt-req-manager)
+       src-reqs (filter (fn [req]
+                         (let [loc (.location req)
+                               src-path (.sourcePath loc "Clojure")]
+                           (.endsWith src src-path)))
+                        reqs)]
+   (.deleteEventRequests evt-req-manager src-reqs)))
+                         
    
 (defn- step
  "Step into or over called functions. Depth must be either StepRequest.STEP_INTO or
@@ -137,16 +157,21 @@
   [evt-queue evt-req-mgr]
   (println "Listening for events....")
   (loop [evt-set (.remove evt-queue)]
-     (println "Handling event ==============================")
     (let [events (iterator-seq (.eventIterator evt-set))]
       (doseq [evt events
                :let [evt-req (.request evt)]]
+        (println "CDB MIDDLEWARE EVENT" evt)
         (cond 
           (instance? BreakpointRequest evt-req)
           (let [tr (.thread evt)
-                line (-> evt-req .location .lineNumber)]
-            (println "Thread: " (.name tr))
-            (println "Breakpoint hit at line " line))
+                loc (.location evt-req)
+                src (.sourceName loc)
+                line (.lineNumber loc)]
+            (println (generate-string {:event "breakpoint"
+                                       :thread (.name tr)
+                                       :src src
+                                       :line line}))
+            (flush))
             
           (instance? StepRequest evt-req)
           (let [tr (.thread evt)
@@ -155,6 +180,7 @@
                 src (.sourceName loc)]
             (println "At location " (.lineNumber loc))
             (println "File: " src)
+            (flush)
             ;; Need to remove a step request or we won't be able to make another one.
             (.deleteEventRequest evt-req-mgr evt-req))
           

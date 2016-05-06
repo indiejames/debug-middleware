@@ -4,5 +4,6 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :plugins [[lein-modules "0.3.11"]]
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[cheshire "5.6.1"]
+                 [org.clojure/clojure "1.8.0"]
                  [org.clojure/core.async "0.2.374"]])
