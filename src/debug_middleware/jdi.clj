@@ -1,10 +1,10 @@
 (ns debug-middleware.jdi
  "Functions that wrap the JDI debugging code."
  (:require [cheshire.core :refer :all]
+           [clojure.core.async :as async :refer [chan thread go >!]]
            [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
            [clojure.tools.nrepl.transport :as t]
-           [clojure.tools.nrepl.misc :refer [response-for returning]]
-           [clojure.core.async :refer [thread]])
+           [clojure.tools.nrepl.misc :refer [response-for returning]])
  (:import com.sun.jdi.Bootstrap
            com.sun.jdi.request.EventRequest
            com.sun.jdi.request.BreakpointRequest
@@ -14,6 +14,10 @@
            com.sun.jdi.LongValue
            com.sun.tools.jdi.LongValueImpl
            com.sun.tools.jdi.ObjectReferenceImpl))
+           
+(def event-channel
+ "Channel used to communicate events."
+ (chan))
            
 (defn list-threads
  "Returns the list of threads for the given VM."
@@ -36,9 +40,18 @@
    
 (defn list-frames
  "Returns a list of frames for the thread with the given name."
- [vm name]
- (let [tr (get-thread-with-name vm name)]
-  (.frames tr)))
+ [vm thread-name]
+ (println "LISTING FRAMES FOR THREAD " thread-name)
+ (let [tr (get-thread-with-name vm thread-name)]
+  (map (fn [frame]
+        (let [loc (.location frame)
+              line (.lineNumber loc "Clojure")
+              src-path (.sourcePath loc "Clojure")
+              src-name (.sourceName loc "Clojure")]
+           {:srcPath src-path
+            :srcName src-name
+            :line line})) 
+       (.frames tr))))
   
 (defn ref-type-has-src-path?
  "Returns true if the given reference type has a src file matching the given path."
@@ -160,33 +173,33 @@
     (let [events (iterator-seq (.eventIterator evt-set))]
       (doseq [evt events
                :let [evt-req (.request evt)]]
-        (println "CDB MIDDLEWARE EVENT" evt)
+        ; (println "CDB MIDDLEWARE EVENT" evt)
         (cond 
           (instance? BreakpointRequest evt-req)
           (let [tr (.thread evt)
                 loc (.location evt-req)
                 src (.sourceName loc)
-                line (.lineNumber loc)]
-            (println (generate-string {:event "breakpoint"
-                                       :thread (.name tr)
-                                       :src src
-                                       :line line}))
-            (flush))
+                line (.lineNumber loc)
+                evt-map (generate-string {:event-type "breakpoint"
+                                          :thread (.name tr)
+                                          :src src
+                                          :line line})]
+            (go (>! event-channel evt-map)))
             
-          (instance? StepRequest evt-req)
-          (let [tr (.thread evt)
-                frame (.frame tr 0)
-                loc (.location frame)
-                src (.sourceName loc)]
-            (println "At location " (.lineNumber loc))
-            (println "File: " src)
-            (flush)
+         (instance? StepRequest evt-req)
+         (let [tr (.thread evt)
+               frame (.frame tr 0)
+               loc (.location frame)
+               src (.sourceName loc)]
+           (println "At location " (.lineNumber loc))
+           (println "File: " src)
+           (flush)
             ;; Need to remove a step request or we won't be able to make another one.
-            (.deleteEventRequest evt-req-mgr evt-req))
+           (.deleteEventRequest evt-req-mgr evt-req))
           
-          :default
+         :default
           (println "Unknown event"))))
-    (recur (.remove evt-queue))))
+   (recur (.remove evt-queue))))
            
 (defn setup-debugger
  "Intialize the debugger."

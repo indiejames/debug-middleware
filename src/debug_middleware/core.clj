@@ -2,7 +2,7 @@
  (:require [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
            [clojure.tools.nrepl.transport :as t]
            [clojure.tools.nrepl.misc :refer [response-for returning]]
-           [clojure.core.async :refer [thread]]
+           [clojure.core.async :refer [thread <!!]]
            [debug-middleware.jdi :as jdi])
  (:import com.sun.jdi.Bootstrap
           com.sun.jdi.request.BreakpointRequest))
@@ -27,6 +27,12 @@
  (println "LISTING THREADS")
  (let [threads (jdi/list-threads @vm-atom)]
   (t/send transport (response-for msg :status :done :threads threads))))
+  
+(defmethod handle-msg "get-event"
+ [handler {:keys [op session interrup-id id transport] :as msg}]
+ (println "GETTING EVENT")
+ (let [evt-map (<!! jdi/event-channel)]
+  (t/send transport (response-for msg :status :done :event evt-map))))
 
 (defmethod handle-msg "require-namespace"
   [handler {:keys [op namespace session interrup-id id transport] :as msg}]
@@ -78,11 +84,15 @@
    :handles {"list-threads"
                 {:doc "List the threads in the VM."
                  :requires {}
-                 :returns {"result" "A map containing :status :done :threads threads}"}}
+                 :returns {"result" "A map containing :status :done :threads threads"}}
+             "get-event"
+                {:doc "Request that the middleware send the next event as a response to this message."
+                 :requires {}
+                 :returns {"result" "A map containing :status :done :event event-map"}}
              "list-frames"
                 {:doc "List the frames for a given thread."
                  :requires {"thread-id" "The id of the thread"}
-                 :returns {"result" "A map containing :status :done :frames frames}"}}
+                 :returns {"result" "A map containing :status :done :frames frames"}}
              "require-namespace"
                 {:doc "Require a namespace to force loading so it will be available for debugging"
                  :requires {"namespace" "The namespace to be required"}
