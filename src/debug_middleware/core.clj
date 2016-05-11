@@ -16,6 +16,13 @@
                       (println "Received message " msg)
                       (:op msg)))
 
+(defmethod handle-msg "list-vars"
+ [handler {:keys [op session id transport thread-name frame-index] :as msg}]
+ (println "LISTING VARS")
+ (let [vars (jdi/list-vars @vm-atom thread-name frame-index)]
+  (println "VARS: " vars)
+  (t/send transport (response-for msg :status :done :vars vars))))
+   
 (defmethod handle-msg "list-frames"
  [handler {:keys [op session thread-name id transport] :as msg}]
  (println "LISTING FRAMES")
@@ -91,8 +98,12 @@
                  :returns {"result" "A map containing :status :done :event event-map"}}
              "list-frames"
                 {:doc "List the frames for a given thread."
-                 :requires {"thread-id" "The id of the thread"}
+                 :requires {"thread-name" "The id of the thread"}
                  :returns {"result" "A map containing :status :done :frames frames"}}
+             "list-vars"
+                {:doc "List the visible variables for a given stack frame."
+                 :requires {"thread-name" "The id of the thread" "frame-index" "The index of the given frame"}
+                 :returns {"result" "A map containing :status :done :vars variables"}}
              "require-namespace"
                 {:doc "Require a namespace to force loading so it will be available for debugging"
                  :requires {"namespace" "The namespace to be required"}

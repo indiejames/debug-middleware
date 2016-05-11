@@ -42,7 +42,7 @@
  "Returns a list of frames for the thread with the given name."
  [vm thread-name]
  (println "LISTING FRAMES FOR THREAD " thread-name)
- (let [tr (get-thread-with-name vm thread-name)]
+ (let [thrd (get-thread-with-name vm thread-name)]
   (map (fn [frame]
         (let [loc (.location frame)
               line (.lineNumber loc "Clojure")
@@ -51,7 +51,32 @@
            {:srcPath src-path
             :srcName src-name
             :line line})) 
-       (.frames tr))))
+       (.frames thrd))))
+       
+(defn list-vars
+ "Get the local variables and arguments for the given stack frame."
+ [vm thread-name frame-index]
+ (let [thrd (get-thread-with-name vm thread-name)
+       frame (.frame thrd frame-index)
+       vars (.visibleVariables frame)]
+  (reduce (fn [[args locals] var]
+            (let [name (.name var)
+                  value (.getValue frame var)
+                  ref-type (.referenceType value)
+                  fields (into [] (.fields ref-type))
+                  _ (println "Fields: " fields)
+                  field (.fieldByName ref-type "value")
+                  _ (println "Field: " field)
+                  my-value (str (.getValue value field))]
+             (println "Name: " name)
+             (println "Value: " value)
+             (println "Field: " field)
+             (println "This: " my-value)
+             (if (.isArgument var)
+              [(conj args {:name name :value my-value}) locals]
+              [args, (conj locals {:name name :value my-value})])))
+    [[] []]
+    vars)))
   
 (defn ref-type-has-src-path?
  "Returns true if the given reference type has a src file matching the given path."
@@ -93,6 +118,8 @@
   [frame]
   (doseq [local (.visibleVariables frame)]
    (println (.name local) " = " (printable-variable (.getValue frame local)))))
+              
+   
    
 ; (defn set-value
 ;  "Set a value for a local variable."
