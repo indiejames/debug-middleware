@@ -2,8 +2,10 @@
  (:require [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
            [clojure.tools.nrepl.transport :as t]
            [clojure.tools.nrepl.misc :refer [response-for returning]]
+           [clojure.tools.namespace.repl :refer [refresh]]
            [clojure.core.async :refer [thread <!!]]
-           [debug-middleware.jdi :as jdi])
+           [debug-middleware.jdi :as jdi] 
+           [debug-middleware.language-server :as lang])
  (:import com.sun.jdi.Bootstrap
           com.sun.jdi.request.BreakpointRequest))
  
@@ -71,6 +73,20 @@
   (println "Continue request received.")
   (jdi/continue @vm-atom)
   (t/send transport (response-for msg :status :done)))
+  
+(defmethod handle-msg "find-definition"
+  [handler {:keys [op session interrupt-id id transport sym] :as msg}]
+  (println "Finding definition for " sym)
+  (let [[path line] (lang/find-definition sym)]
+   (println "Path: " path)
+   (println "Line: " line)
+   (t/send transport (response-for msg :status :done :path path :line line))))
+   
+(defmethod handle-msg "refresh"
+ [handler {:keys [op session interrupt-id id transport] :as msg}]
+ (println "Refreshing code...")
+ (refresh)
+ (t/send transport (response-for msg :status :done :msg "OK")))
  
 (defmethod handle-msg :default 
   [handler msg]
@@ -107,7 +123,7 @@
              "require-namespace"
                 {:doc "Require a namespace to force loading so it will be available for debugging"
                  :requires {"namespace" "The namespace to be required"}
-                 :returns {"result" "A map containing :msg :ok or :error msg}"}}
+                 :returns {"result" "A map containing :msg :ok or :error msg"}}
              "continue"
                 {:doc "Continue after a breakpoint"
                  :requires {}
@@ -120,6 +136,14 @@
                 {:doc "Set a breakpoint"
                  :requires {"path" "The path to the source file"
                             "line" "The line at which to set the breakpoint"}
-                 :returns {"result" "The result message with :status :done"}}}})
+                 :returns {"result" "The result message with :status :done"}}
+             "refresh"
+                {:doc "Refresh code that has changed."
+                 :requires {}
+                 :returns {"result" "A map containing :msg :ok or :error msg with :status :done"}}
+             "find-definition"
+                {:doc "Find the location where a symbol is defined."
+                 :requires {"sym" "The symbol to find"}
+                 :returns {"result" "A map containig :status :done :path path :line line"}}}})
   
   
