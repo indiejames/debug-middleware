@@ -25,32 +25,72 @@
     
 (defn find-definition
  "Find the location where the given symbol is defined."
- [symbol-str]
- (let [sym (symbol symbol-str)
-       _ (println sym)
-       the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
-                            clojure.repl/dir-fn
-                            first
-                            name
-                            (str (name sym) "/")
-                            symbol)
-                   sym)
-       _ (println the-var)
-       {:keys [file line]} (meta (eval `(var ~the-var)))
-       _ (println file)
-       _ (println line)
-       file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))]
-   (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\\.m2/repository/(.+\\.jar))!/(.+)" file-path)]
-     (let [decompressed-path (str (System/getProperty "user.home")
-                                  "/.lein/tmp-atom-jars/"
-                                  partial-jar-path)
-           decompressed-file-path (str decompressed-path "/" within-file-path)
-           decompressed-path-dir (clojure.java.io/file decompressed-path)]
-        (when-not (.exists decompressed-path-dir)
-            (println "decompressing" jar-path "to" decompressed-path)
-            (.mkdirs decompressed-path-dir)
-            (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
-        [decompressed-file-path line])
-     [file-path line])))
+ [ns-str symbol-str]
+ (println "Finding location of " symbol-str " in namespace" ns-str)
+ (try
+  ;; Binding a thread-local copy of *ns* so changes
+  ;; are isolated to this thread (
+  ;; see https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
+  (binding [*ns* *ns*]
+    (in-ns (symbol ns-str))
+    (println "In namespace " ns-str)
+  ;;(clojure.core/require [clojure.core :refer :all])
+    (require 'clojure.repl)
+    (require 'clojure.java.shell)
+    (require 'clojure.java.io)
+    (let [sym (symbol symbol-str)
+          _ (println sym)
+          the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
+                              clojure.repl/dir-fn
+                              first
+                              name
+                              (str (name sym) "/")
+                              symbol)
+                      sym)
+          _ (println the-var)
+          {:keys [file line]} (meta (eval `(var ~the-var)))
+          _ (println file)
+          _ (println line)
+          file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))]
+      (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\\.m2/repository/(.+\\.jar))!/(.+)" file-path)]
+        (let [decompressed-path (str (System/getProperty "user.home")
+                                    "/.lein/tmp-atom-jars/"
+                                    partial-jar-path)
+              decompressed-file-path (str decompressed-path "/" within-file-path)
+              decompressed-path-dir (clojure.java.io/file decompressed-path)]
+          (when-not (.exists decompressed-path-dir)
+              (println "decompressing" jar-path "to" decompressed-path)
+              (.mkdirs decompressed-path-dir)
+              (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
+          [decompressed-file-path line])
+        [file-path line])))
+  (catch Exception e
+    (println (.getMessage e))
+    (println (.stackTrace e)))))
+      
+(defn refresh
+ "Refresh namespaces that have changed and restart application" 
+ []
+ (try
+   (require 'user)
+   (catch java.io.FileNotFoundException e
+     (println (str "No user namespace defined. Defaulting to clojure.tools.namespace.repl/refresh.\n"))))
+ (try
+   (require 'clojure.tools.namespace.repl)
+   (catch java.io.FileNotFoundException e
+     (println "clojure.tools.namespace.repl not available. Add as a dependency to allow refresh.")))
+ (let [user-reset 'user/reset
+       ctnr-refresh 'clojure.tools.namespace.repl/refresh
+       result (cond
+                 (find-var user-reset)
+                 ((resolve user-reset))
+                 (find-var ctnr-refresh)
+                 ((resolve ctnr-refresh))
+                 :else
+                 (println (str "You can use your own refresh function, just define reset function in user namespace\n"
+                               "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
+   (when (isa? (type result) Exception)
+     (println (.getMessage result)))
+   result))
           
   
