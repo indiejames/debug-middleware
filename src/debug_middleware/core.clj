@@ -72,6 +72,12 @@
   (println "Continue request received.")
   (jdi/continue @vm-atom)
   (t/send transport (response-for msg :status :done)))
+
+(defmethod handle-msg "get-completions"
+ [handler {:keys [op session interrupt-id id transport ns src pos prefix] :as msg}]
+ (println "Finding completions for " prefix)
+ (let [completions (lang/get-completions ns prefix src pos)]
+   (t/send transport (response-for msg :status :done :completions completions)))) 
   
 (defmethod handle-msg "find-definition"
   [handler {:keys [op session interrupt-id id transport ns sym] :as msg}]
@@ -80,12 +86,26 @@
    (println "Path: " path)
    (println "Line: " line)
    (t/send transport (response-for msg :status :done :path path :line line))))
+
+(defmethod handle-msg "doc"
+ [handler {:keys [op session interrupt-id id transport ns var] :as msg}]
+ (println "Finding docstring for " var)
+ (try
+  (let [doc-string (lang/doc ns var)]
+    (if doc-string
+      (t/send transport (response-for msg :status :done :doc doc-string))
+      (t/send transport (response-for msg :status :done :error "Failed to retrieve docstring."))))
+  (catch Exception e
+   (t/send transport (response-for msg :status :error :msg "Failed to retrieve docstring")))))
+
    
 (defmethod handle-msg "refresh"
  [handler {:keys [op session interrupt-id id transport] :as msg}]
  (println "Refreshing/reloading code...")
  (lang/refresh)
- (t/send transport (response-for msg :status :done :msg "OK")))
+ (println "Refreshed.")
+ (t/send transport (response-for msg :status :done :msg "OK"))
+ (println "Refresh complete."))
  
 (defmethod handle-msg :default 
   [handler msg]
@@ -140,6 +160,17 @@
                 {:doc "Refresh code that has changed."
                  :requires {}
                  :returns {"result" "A map containing :msg :ok or :error msg with :status :done"}}
+             "doc"
+                {:doc "Get the docstring for the given symbol."
+                 :requires {"var" "The var for which to return the docstring"}
+                 :returns {"result" "A map containing :msg docstring or :error msg with :status :done"}}
+             "get-completions"
+                {:doc "Returns a list of possible completions for the given prefix."
+                 :requires {"prefix" "The characters entered by the user" 
+                            "ns" "The namespace where the prefix was entered"
+                            "src" "The source text of the file where the prefix was entered"
+                            "pos" "THe character position in the source where the prefix begins"}
+                 :returns {"result" "A map containing :status :done :completions completions"}}
              "find-definition"
                 {:doc "Find the location where a symbol is defined."
                  :requires {"ns" "The namespace in which the search was executed." "sym" "The symbol to find"}

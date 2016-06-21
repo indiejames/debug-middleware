@@ -1,7 +1,8 @@
 (ns debug-middleware.language-server
  (:require [clojure.repl :as repl]
            [clojure.java.shell :as shell]
-           [clojure.java.io :as io])
+           [clojure.java.io :as io]
+           [compliment.core])
  (:import java.io.PushbackReader
           java.io.StringReader))
 
@@ -22,7 +23,40 @@
    (if (> pos position)
     form
     (recur (read rdr) @rdr)))))
-    
+
+(defn doc
+ "Returns the docstring for the given var."
+ [var]
+ (println "Finding doc for " var)
+ (repl/doc var)
+ (with-out-str (repl/doc var)))
+
+(defn doc 
+ "Find documentation for the given var"
+  [ns-str var-str]
+  (try
+        ;; Binding a thread-local copy of *ns* so changes
+        ;; are isolated to this thread (
+        ;; see https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
+   (binding [*ns* *ns*]
+     (in-ns (symbol ns-str))
+     (println "In namespace " ns-str)
+        ;;(clojure.core/require [clojure.core :refer :all])
+     (require 'clojure.repl)
+     (let [sym (symbol var-str)
+           _ (println sym)
+           the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
+                               clojure.repl/dir-fn
+                               first
+                               name
+                               (str (name sym) "/")
+                               symbol)
+                       sym)]
+      (with-out-str (eval `(repl/doc ~the-var)))))
+   (catch Exception e
+     (println (.getMessage e))
+     (println (.stackTrace e)))))
+      
 (defn find-definition
  "Find the location where the given symbol is defined."
  [ns-str symbol-str]
@@ -71,26 +105,50 @@
 (defn refresh
  "Refresh namespaces that have changed and restart application" 
  []
- (try
-   (require 'user)
-   (catch java.io.FileNotFoundException e
-     (println (str "No user namespace defined. Defaulting to clojure.tools.namespace.repl/refresh.\n"))))
- (try
-   (require 'clojure.tools.namespace.repl)
-   (catch java.io.FileNotFoundException e
-     (println "clojure.tools.namespace.repl not available. Add as a dependency to allow refresh.")))
- (let [user-reset 'user/reset
-       ctnr-refresh 'clojure.tools.namespace.repl/refresh
-       result (cond
-                 (find-var user-reset)
-                 ((resolve user-reset))
-                 (find-var ctnr-refresh)
-                 ((resolve ctnr-refresh))
-                 :else
-                 (println (str "You can use your own refresh function, just define reset function in user namespace\n"
-                               "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
-   (when (isa? (type result) Exception)
-     (println (.getMessage result)))
-   result))
-          
-  
+ (binding [*ns* *ns*]
+  (try
+    (println "Requiring 'user")
+    (require 'user)
+    (println "'user required.")
+    (catch java.io.FileNotFoundException e
+      (println (str "No user namespace defined. Defaulting to clojure.tools.namespace.repl/refresh.\n"))))
+  (try
+    (println "Requiring 'clojure.tools.namespace.repl")
+    (require 'clojure.tools.namespace.repl)
+    (println "'clojure.tools.namespace.repl required.")
+    (catch java.io.FileNotFoundException e
+      (println "clojure.tools.namespace.repl not available. Add as a dependency to allow refresh.")))
+  (try
+   (let [user-reset 'user/reset
+         ctnr-refresh 'clojure.tools.namespace.repl/refresh
+         result (cond
+                   (find-var user-reset)
+                   ((resolve user-reset))
+                   (find-var ctnr-refresh)
+                   ((resolve ctnr-refresh))
+                   :else
+                   (println (str "You can use your own refresh function, just define reset function in user namespace\n"
+                                 "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
+     (println "Got result.")
+     (when (isa? (type result) Exception)
+       (println (.getMessage result)))
+     result)
+   (catch Exception e
+    (println "Error resolving...")
+    (println (.getMessage e))
+    (.printStackTrace e)))))
+
+(defn get-completions
+ "Returns completions using Compliment"
+  [namespace prefix src pos]
+  (let [ns-symbol (symbol namespace)
+        ctx (str (find-high-level-form src pos))
+        completions (compliment.core/completions
+                       prefix
+                       {:tag-candidates true
+                        :ns ns-symbol
+                        :ctx ctx})]
+    (->> completions
+        (take 100)
+        (mapv #(assoc % :docs (compliment.core/documentation
+                                (:candidate %) ns-symbol))))))
