@@ -90,13 +90,19 @@
 (defmethod handle-msg "doc"
  [handler {:keys [op session interrupt-id id transport ns var] :as msg}]
  (println "Finding docstring for " var)
+ (println "Session: " session)
  (try
-  (let [doc-string (lang/doc ns var)]
+  (let [doc-string (lang/get-doc ns var)]
     (if doc-string
       (t/send transport (response-for msg :status :done :doc doc-string))
-      (t/send transport (response-for msg :status :done :error "Failed to retrieve docstring."))))
-  (catch Exception e
-   (t/send transport (response-for msg :status :error :msg "Failed to retrieve docstring")))))
+      (t/send transport (response-for msg :status :done :doc "Failed to retrieve docstring."))))
+  (catch Throwable e
+   (t/send transport (response-for msg :status :done :doc "Failed to retrieve docstring")))))
+
+(defmethod handle-msg "run-all-tests"
+ [handler {:keys [op session interrupt-id transport] :as msg}]
+ (println "Running all tests...")
+ (lang/run-all-tests))
 
    
 (defmethod handle-msg "refresh"

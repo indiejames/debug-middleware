@@ -24,38 +24,34 @@
     form
     (recur (read rdr) @rdr)))))
 
-(defn doc
- "Returns the docstring for the given var."
- [var]
- (println "Finding doc for " var)
- (repl/doc var)
- (with-out-str (repl/doc var)))
-
-(defn doc 
+(defn get-doc 
  "Find documentation for the given var"
   [ns-str var-str]
-  (try
-        ;; Binding a thread-local copy of *ns* so changes
-        ;; are isolated to this thread (
-        ;; see https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
-   (binding [*ns* *ns*]
-     (in-ns (symbol ns-str))
-     (println "In namespace " ns-str)
-        ;;(clojure.core/require [clojure.core :refer :all])
-     (require 'clojure.repl)
-     (let [sym (symbol var-str)
-           _ (println sym)
-           the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
-                               clojure.repl/dir-fn
-                               first
-                               name
-                               (str (name sym) "/")
-                               symbol)
-                       sym)]
-      (with-out-str (eval `(repl/doc ~the-var)))))
-   (catch Exception e
-     (println (.getMessage e))
-     (println (.stackTrace e)))))
+  ;; Binding a thread-local copy of *ns* so changes
+  ;; are isolated to this thread (
+  ;; see https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
+  (binding [*ns* *ns*]
+   (try
+       
+    (in-ns (symbol ns-str))
+    (println "In namespace " ns-str)
+      ;;(clojure.core/require [clojure.core :refer :all])
+    (require 'clojure.repl)
+    (let [sym (symbol var-str)
+          _ (println sym)
+          the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
+                               ns-name)
+                      sym)
+          rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
+          rval (if (= rval "") "NO VALUE" rval)]
+      (println "rval:")
+      (println rval)
+      (println "MOVING ON...")
+      rval)
+    (catch Throwable e
+      (println "Bad things happend.")
+      (println (.getMessage e))
+      (println (.stackTrace e))))))
       
 (defn find-definition
  "Find the location where the given symbol is defined."
@@ -137,6 +133,11 @@
     (println "Error resolving...")
     (println (.getMessage e))
     (.printStackTrace e)))))
+
+(defn run-all-tests
+ "Runs all tests in the project"
+ []
+ (def all-tests-future (future (time (clojure.test/run-all-tests)))))
 
 (defn get-completions
  "Returns completions using Compliment"
