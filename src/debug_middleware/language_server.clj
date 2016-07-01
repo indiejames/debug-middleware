@@ -49,9 +49,7 @@
                                ns-name)
                       sym)
           rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
-          _ (prn rval)
           rval (format-doc rval)
-          _ (println rval)
           rval (if (= rval "") "NO VALUE" rval)]
       rval)
     (catch Throwable e
