@@ -1,5 +1,6 @@
 (ns debug-middleware.language-server
  (:require [clojure.repl :as repl]
+           [clojure.string :as str]
            [clojure.java.shell :as shell]
            [clojure.java.io :as io]
            [compliment.core])
@@ -24,6 +25,15 @@
     form
     (recur (read rdr) @rdr)))))
 
+(defn- format-doc
+ "Fomrat a docstring using markdown."
+ [doc-string]
+ (if (seq doc-string)
+  (let [terms (rest (str/split doc-string #"\n"))
+        sym (str "[" (str/trim (first terms)) "]()\n")]
+    (str sym (str/join "\n" (rest terms))))
+  doc-string))
+
 (defn get-doc 
  "Find documentation for the given var"
   [ns-str var-str]
@@ -32,24 +42,19 @@
   ;; see https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
   (binding [*ns* *ns*]
    (try
-       
     (in-ns (symbol ns-str))
-    (println "In namespace " ns-str)
-      ;;(clojure.core/require [clojure.core :refer :all])
     (require 'clojure.repl)
     (let [sym (symbol var-str)
-          _ (println sym)
           the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
                                ns-name)
                       sym)
           rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
+          _ (prn rval)
+          rval (format-doc rval)
+          _ (println rval)
           rval (if (= rval "") "NO VALUE" rval)]
-      (println "rval:")
-      (println rval)
-      (println "MOVING ON...")
       rval)
     (catch Throwable e
-      (println "Bad things happend.")
       (println (.getMessage e))
       (println (.stackTrace e))))))
       
@@ -69,7 +74,6 @@
     (require 'clojure.java.shell)
     (require 'clojure.java.io)
     (let [sym (symbol symbol-str)
-          _ (println sym)
           the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
                               clojure.repl/dir-fn
                               first
@@ -77,10 +81,7 @@
                               (str (name sym) "/")
                               symbol)
                       sym)
-          _ (println the-var)
           {:keys [file line]} (meta (eval `(var ~the-var)))
-          _ (println file)
-          _ (println line)
           file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))]
       (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\\.m2/repository/(.+\\.jar))!/(.+)" file-path)]
         (let [decompressed-path (str (System/getProperty "user.home")
