@@ -6,5 +6,6 @@
   :plugins [[lein-modules "0.3.11"]]
   :dependencies [[cheshire "5.6.1"]
                  [org.clojure/tools.namespace "0.2.11"]
+                 [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/clojure "1.8.0"]
                  [org.clojure/core.async "0.2.374"]])

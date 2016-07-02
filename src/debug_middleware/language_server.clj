@@ -138,6 +138,12 @@
  []
  (def all-tests-future (future (time (clojure.test/run-all-tests)))))
 
+(defn run-test
+ "Run a single test"
+ [ns-str test-name]
+ (let [the-test `(var ~(symbol (str ns-str "/" test-name)))]
+    (clojure.test/test-vars [(eval the-test)])))
+
 (defn get-completions
  "Returns completions using Compliment"
   [namespace prefix src pos]

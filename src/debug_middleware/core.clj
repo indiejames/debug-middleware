@@ -2,8 +2,9 @@
  (:require [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
            [clojure.tools.nrepl.transport :as t]
            [clojure.tools.nrepl.misc :refer [response-for returning]]
+           [clojure.tools.logging :refer :all]
            [clojure.core.async :refer [thread <!!]]
-           [debug-middleware.jdi :as jdi] 
+           [debug-middleware.jdi :as jdi]
            [debug-middleware.language-server :as lang])
  (:import com.sun.jdi.Bootstrap
           com.sun.jdi.request.BreakpointRequest))
@@ -14,37 +15,37 @@
  
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] 
-                      (println "Received message " msg)
+                      ; (debug "Received message " msg)
                       (:op msg)))
 
 (defmethod handle-msg "list-vars"
  [handler {:keys [op session id transport thread-name frame-index] :as msg}]
- (println "LISTING VARS")
+ (debug "LISTING VARS")
  (let [vars (jdi/list-vars @vm-atom thread-name frame-index)]
-  (println "VARS: " vars)
+  (debug "VARS: " vars)
   (t/send transport (response-for msg :status :done :vars vars))))
    
 (defmethod handle-msg "list-frames"
  [handler {:keys [op session thread-name id transport] :as msg}]
- (println "LISTING FRAMES")
+ (debug "LISTING FRAMES")
  (let [frames (jdi/list-frames @vm-atom thread-name)]
   (t/send transport (response-for msg :status :done :frames frames))))
 
 (defmethod handle-msg "list-threads"
  [handler {:keys [op session interrup-id id transport] :as msg}]
- (println "LISTING THREADS")
+ (debug "LISTING THREADS")
  (let [threads (jdi/list-threads @vm-atom)]
   (t/send transport (response-for msg :status :done :threads threads))))
   
 (defmethod handle-msg "get-event"
  [handler {:keys [op session interrup-id id transport] :as msg}]
- (println "GETTING EVENT")
+ (debug "GETTING EVENT")
  (let [evt-map (<!! jdi/event-channel)]
   (t/send transport (response-for msg :status :done :event evt-map))))
 
 (defmethod handle-msg "require-namespace"
   [handler {:keys [op namespace session interrup-id id transport] :as msg}]
-  (println "REQUIRING NAMESPACE " namespace)
+  (debug "REQUIRING NAMESPACE " namespace)
   (let [msg (-> msg
                 (assoc :op "eval" :code (str "(require '" namespace ")"))
                 (dissoc :namespace))]
@@ -55,42 +56,42 @@
 
 (defmethod handle-msg "set-breakpoint"
   [handler {:keys [op line path session interrupt-id id transport] :as msg}]
-  (println "SETTING BREAKPOINT")
-  (println "MSG: " msg)
+  (debug "SETTING BREAKPOINT")
+  (debug "MSG: " msg)
   (jdi/set-breakpoint @vm-atom path line)
   (t/send transport (response-for msg :status :done)))
     
 (defmethod handle-msg "clear-breakpoints"
   [handler {:keys [op path session interrupt-id id transport] :as msg}]
-  (println "CLEARING BREAKPOINTS")
-  (println "MSG: " msg)
+  (debug "CLEARING BREAKPOINTS")
+  (debug "MSG: " msg)
   (jdi/clear-breakpoints @vm-atom path)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "continue"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
-  (println "Continue request received.")
+  (debug "Continue request received.")
   (jdi/continue @vm-atom)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "get-completions"
  [handler {:keys [op session interrupt-id id transport ns src pos prefix] :as msg}]
- (println "Finding completions for " prefix)
+ (debug "Finding completions for " prefix)
  (let [completions (lang/get-completions ns prefix src pos)]
    (t/send transport (response-for msg :status :done :completions completions)))) 
   
 (defmethod handle-msg "find-definition"
   [handler {:keys [op session interrupt-id id transport ns sym] :as msg}]
-  (println "Finding definition for " sym)
+  (debug "Finding definition for " sym)
   (let [[path line] (lang/find-definition ns sym)]
-   (println "Path: " path)
-   (println "Line: " line)
+   (debug "Path: " path)
+   (debug "Line: " line)
    (t/send transport (response-for msg :status :done :path path :line line))))
 
 (defmethod handle-msg "doc"
  [handler {:keys [op session interrupt-id id transport ns var] :as msg}]
- (println "Finding docstring for " var)
- (println "Session: " session)
+ (debug "Finding docstring for " var)
+ (debug "Session: " session)
  (try
   (let [doc-string (lang/get-doc ns var)]
     (if doc-string
@@ -101,21 +102,25 @@
 
 (defmethod handle-msg "run-all-tests"
  [handler {:keys [op session interrupt-id transport] :as msg}]
- (println "Running all tests...")
+ (debug "Running all tests...")
  (lang/run-all-tests))
 
-   
+(defmethod handle-msg "run-test"
+ [handler {:keys [op session interrup-id transport ns test-name] :as msg}]
+ (debug "Running test " test-name "...")
+ (lang/run-test ns test-name))
+
 (defmethod handle-msg "refresh"
  [handler {:keys [op session interrupt-id id transport] :as msg}]
- (println "Refreshing/reloading code...")
+ (debug "Refreshing/reloading code...")
  (lang/refresh)
- (println "Refreshed.")
+ (debug "Refreshed.")
  (t/send transport (response-for msg :status :done :msg "OK"))
- (println "Refresh complete."))
+ (debug "Refresh complete."))
  
 (defmethod handle-msg :default 
   [handler msg]
-  (println "USING DEFAULT HANDLER")
+  (debug "USING DEFAULT HANDLER")
   (handler msg))
   
 (defn debug-middleware
@@ -166,6 +171,15 @@
                 {:doc "Refresh code that has changed."
                  :requires {}
                  :returns {"result" "A map containing :msg :ok or :error msg with :status :done"}}
+             "run-all-tests"
+                {:doc "Run all the tests in the project."
+                 :requires {}
+                 :returns {"result" "A map containing :status :done or :error with a list of errors."}}
+             "run-test"
+                {:doc "Run a single test."
+                 :requires {"ns" "The namespace containing the test"
+                            "test-name" "The name of the test to be executed."}
+                 :returns {"result" "A map containing :status :done or :error with a list of errors."}}
              "doc"
                 {:doc "Get the docstring for the given symbol."
                  :requires {"var" "The var for which to return the docstring"}
