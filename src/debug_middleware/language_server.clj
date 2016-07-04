@@ -134,18 +134,26 @@
     (.printStackTrace e)))))
 
 (defn run-all-tests
- "Runs all tests in the project"
+ "Runs all tests in the project."
  []
  (def all-tests-future (future (time (clojure.test/run-all-tests)))))
 
+(defn run-tests-in-namespace
+ "Runs all the tests in a single namespace."
+ [ns-str]
+ (binding [*ns* *ns*]
+    (in-ns (symbol ns-str))
+    (println "In namespace " ns-str)
+    (clojure.test/run-tests)))
+
 (defn run-test
- "Run a single test"
+ "Run a single test."
  [ns-str test-name]
  (let [the-test `(var ~(symbol (str ns-str "/" test-name)))]
     (clojure.test/test-vars [(eval the-test)])))
 
 (defn get-completions
- "Returns completions using Compliment"
+ "Returns completions using Compliment."
   [namespace prefix src pos]
   (let [ns-symbol (symbol namespace)
         ctx (str (find-high-level-form src pos))

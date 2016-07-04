@@ -15,7 +15,7 @@
  
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] 
-                      ; (debug "Received message " msg)
+                      (println "Received message " msg)
                       (:op msg)))
 
 (defmethod handle-msg "list-vars"
@@ -104,6 +104,11 @@
  [handler {:keys [op session interrupt-id transport] :as msg}]
  (debug "Running all tests...")
  (lang/run-all-tests))
+
+(defmethod handle-msg "run-tests-in-namespace"
+ [handler {:keys [op session interrupt-id transport ns] :as msg}]
+ (debug "Running tests in namespace " ns)
+ (lang/run-tests-in-namespace ns))
 
 (defmethod handle-msg "run-test"
  [handler {:keys [op session interrup-id transport ns test-name] :as msg}]
