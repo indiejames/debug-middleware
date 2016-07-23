@@ -15,7 +15,7 @@
  
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] 
-                      (println "Received message " msg)
+                      ; (println "Received message " msg)
                       (:op msg)))
 
 (defmethod handle-msg "list-vars"
