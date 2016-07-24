@@ -56,8 +56,8 @@
 
 (defmethod handle-msg "set-breakpoint"
   [handler {:keys [op line path session interrupt-id id transport] :as msg}]
-  (debug "SETTING BREAKPOINT")
-  (debug "MSG: " msg)
+  (println "SETTING BREAKPOINT")
+  (println "MSG: " msg)
   (jdi/set-breakpoint @vm-atom path line)
   (t/send transport (response-for msg :status :done)))
     
@@ -131,6 +131,7 @@
 (defn debug-middleware
  "Lein middleware to handle debug requests." 
  [handler]
+ (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
  (reset! vm-atom (jdi/setup-debugger (System/getenv "CLOJURE_DEBUG_JDWP_PORT")))
  (fn [msg]
   (handle-msg handler msg)))

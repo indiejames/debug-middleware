@@ -56,13 +56,20 @@
 (defn list-vars
  "Get the local variables and arguments for the given stack frame."
  [vm thread-name frame-index]
+ (println "Getting vars for thread " thread-name " frame " frame-index)
  (let [thrd (get-thread-with-name vm thread-name)
+        _ (println "Thread: " thrd)
        frame (.frame thrd frame-index)
+       _ (println "Frame: " frame)
        vars (.visibleVariables frame)]
+  (println "Vars: " vars)
   (reduce (fn [[args locals] var]
             (let [name (.name var)
+                  _ (println "Var: " name)
                   value (.getValue frame var)
+                  _ (println "Value: " value)
                   ref-type (.referenceType value)
+                  _ (println "ref-type: " ref-type)
                   fields (into [] (.fields ref-type))
                   _ (println "Fields: " fields)
                   field (.fieldByName ref-type "value")
