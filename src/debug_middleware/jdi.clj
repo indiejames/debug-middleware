@@ -13,7 +13,9 @@
            com.sun.jdi.StringReference
            com.sun.jdi.LongValue
            com.sun.tools.jdi.LongValueImpl
-           com.sun.tools.jdi.ObjectReferenceImpl))
+           com.sun.tools.jdi.ObjectReferenceImpl
+           com.sun.tools.jdi.StringReferenceImpl
+           com.sun.tools.jdi.BooleanValueImpl))
            
 (def event-channel
  "Channel used to communicate events."
@@ -52,6 +54,85 @@
             :srcName src-name
             :line line})) 
        (.frames thrd))))
+
+(declare format-var)
+
+(defmulti format-object 
+ "Format an object so it can be displayed in VS Code."
+ (fn [obj] (.name (.referenceType obj))))
+
+(defmethod format-object "java.lang.Long"
+  [obj]
+  (let [ref-type (.referenceType obj)
+        field (.fieldByName ref-type "value")]
+    (.value (.getValue obj field))))
+
+(defmethod format-object "clojure.lang.PersistentArrayMap"
+ [obj]
+ ;; TODO figure out how to construct an actual map from the 
+ ;; ObjectReferenceImpl obj.
+ )
+
+;; TODO Add support for all the basic Clojure collection types (map, vector, list, set, and 
+;; maybe sequence) and then have the default just print basic info about the object, 
+;; maybe by calling .toString on it.
+
+(defmethod format-object :default
+ [obj]
+ (let [ref-type (.referenceType obj)
+       name (.name ref-type)]
+    (println "NAME: " name)
+    (.toString obj)))
+
+; (defmethod format-object :default
+;  [obj]
+;  (println obj)
+;  (let [ref-type (.referenceType obj)
+;        fields (into [] (.fields ref-type))]
+;     (reduce (fn [acc field]
+;               (assoc acc (.name field) (format-var (.getValue obj field))))
+;             {}
+;             fields)))
+
+(defmulti format-var
+ "Format a var so it can be displayed in VS Code."
+ (fn [v] (type v)))
+
+(defmethod format-var StringReferenceImpl
+  [v]
+  (.value v))
+
+(defmethod format-var LongValueImpl
+  [v]
+  (.value v))
+
+(defmethod format-var BooleanValueImpl
+ [v]
+ (.value v))
+
+(defmethod format-var ObjectReferenceImpl
+ [v]
+ (format-object v))
+ 
+(defmethod format-var :default
+ [v]
+ (.value v))
+
+(defn printable-variable
+ "Get the printable value for a local variables Value."
+ [value]
+ (println "TYPE: " (type value))
+ (cond
+  (instance? BooleanValue value) (.value value)
+  
+  (instance? StringReference value) (.value value)
+  
+  (instance? LongValueImpl value) (.value value)
+  
+  ;; TODO - Figure out a better way to print objects
+  (instance? ObjectReferenceImpl value) (str value)
+  
+  :else (str value)))
        
 (defn list-vars
  "Get the local variables and arguments for the given stack frame."
@@ -74,7 +155,10 @@
                   _ (println "Fields: " fields)
                   field (.fieldByName ref-type "value")
                   _ (println "Field: " field)
-                  my-value (str (.getValue value field))]
+                  ; my-value (str (.getValue value field))]
+                  my-value (format-var value)]
+                  ; my-value 4]
+                  ; my-value (printable-variable value)]
              (println "Name: " name)
              (println "Value: " value)
              (println "Field: " field)
@@ -100,22 +184,6 @@
   (let [locs (.allLineLocations ref-type)]
     (some (fn [loc] (when (= (.lineNumber loc "Clojure") line) loc)) 
           locs)))
-          
-(defn printable-variable
- "Get the printable value for a local variables Value."
- [value]
- (println "TYPE: " (type value))
- (cond
-  (instance? BooleanValue value) (.value value)
-  
-  (instance? StringReference value) (.value value)
-  
-  (instance? LongValue value) (.value value)
-  
-  ;; TODO - Figure out a better way to print objects
-  (instance? ObjectReferenceImpl value) (str value)
-  
-  :else (str value)))
  
 (defn print-locals
   "Print the local variables and their values for the given stack frame.
