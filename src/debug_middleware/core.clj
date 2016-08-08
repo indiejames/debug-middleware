@@ -5,7 +5,8 @@
            [clojure.tools.logging :refer :all]
            [clojure.core.async :refer [thread <!!]]
            [debug-middleware.jdi :as jdi]
-           [debug-middleware.language-server :as lang])
+           [debug-middleware.language-server :as lang]
+           [cdt.ui :refer :all])
  (:import com.sun.jdi.Bootstrap
           com.sun.jdi.request.BreakpointRequest))
  
@@ -15,26 +16,30 @@
  
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] 
-                      ; (println "Received message " msg)
+                      (println "Received message " msg)
                       (:op msg)))
 
 (defmethod handle-msg "list-vars"
  [handler {:keys [op session id transport thread-name frame-index] :as msg}]
- (debug "LISTING VARS")
- (let [vars (jdi/list-vars @vm-atom thread-name frame-index)]
-  (debug "VARS: " vars)
+ (println "LISTING VARS")
+;  (let [vars (jdi/my-list-vars @vm-atom thread-name frame-index)]
+ (let [thread (jdi/get-thread-with-name (vm) thread-name)
+       vars (locals thread frame-index)]
+      ;  my-vars (jdi/my-list-vars thread frame-index)]
+  (println "VARS: " vars)
+  ; (println "MY-VARS: " my-vars)
   (t/send transport (response-for msg :status :done :vars vars))))
    
 (defmethod handle-msg "list-frames"
  [handler {:keys [op session thread-name id transport] :as msg}]
  (debug "LISTING FRAMES")
- (let [frames (jdi/list-frames @vm-atom thread-name)]
+ (let [frames (jdi/my-list-frames @vm-atom thread-name)]
   (t/send transport (response-for msg :status :done :frames frames))))
 
 (defmethod handle-msg "list-threads"
  [handler {:keys [op session interrup-id id transport] :as msg}]
- (debug "LISTING THREADS")
- (let [threads (jdi/list-threads @vm-atom)]
+ (println "LISTING THREADS")
+ (let [threads (jdi/my-list-threads @vm-atom)]
   (t/send transport (response-for msg :status :done :threads threads))))
   
 (defmethod handle-msg "get-event"
@@ -58,20 +63,21 @@
   [handler {:keys [op line path session interrupt-id id transport] :as msg}]
   (println "SETTING BREAKPOINT")
   (println "MSG: " msg)
-  (jdi/set-breakpoint @vm-atom path line)
+  (line-bp path line)
   (t/send transport (response-for msg :status :done)))
     
 (defmethod handle-msg "clear-breakpoints"
   [handler {:keys [op path session interrupt-id id transport] :as msg}]
   (debug "CLEARING BREAKPOINTS")
   (debug "MSG: " msg)
-  (jdi/clear-breakpoints @vm-atom path)
+  (delete-all-breakpoints)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "continue"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
   (debug "Continue request received.")
-  (jdi/continue @vm-atom)
+  (jdi/my-continue @vm-atom)
+  ; (continue-thread (ct))
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "get-completions"
@@ -115,6 +121,16 @@
  (debug "Running test " test-name "...")
  (lang/run-test ns test-name))
 
+(defmethod handle-msg "reval"
+  [handler {:keys [op session interrupt-id id transport frame-num form] :as msg}]
+  (println "Remote evaluation...")
+  (println "FORM: " form)
+  (let [thread (ct)
+        f (read-string form)
+        val (safe-reval thread frame-num f true read-string)]
+    (println "VAL: " val)
+    (t/send transport (response-for msg :status :done :value val))))
+
 (defmethod handle-msg "refresh"
  [handler {:keys [op session interrupt-id id transport] :as msg}]
  (debug "Refreshing/reloading code...")
@@ -144,6 +160,10 @@
                 {:doc "List the threads in the VM."
                  :requires {}
                  :returns {"result" "A map containing :status :done :threads threads"}}
+            "reval"
+                {:doc "Evalute an expression in the context of a thread frame."
+                :requires {}
+                :returns {"result" "The result message with :status :done"}}
              "get-event"
                 {:doc "Request that the middleware send the next event as a response to this message."
                  :requires {}
