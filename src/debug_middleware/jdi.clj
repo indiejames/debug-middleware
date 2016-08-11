@@ -187,6 +187,16 @@
   (let [locs (.allLineLocations ref-type)]
     (some (fn [loc] (when (= (.lineNumber loc "Clojure") line) loc)) 
           locs)))
+
+(defn my-reval
+ "Evaluate a form in the context of a thread/frame and return the result."
+ [frame-num form]
+ (let [thd (ct)
+       _ (when-not thd (println "THREAD IS NULL"))
+        f (read-string form)
+        val (safe-reval thd frame-num f true read-string)]
+    (println "VAL: " val)
+    val))
  
 (defn print-locals
   "Print the local variables and their values for the given stack frame.

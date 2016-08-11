@@ -125,10 +125,8 @@
   [handler {:keys [op session interrupt-id id transport frame-num form] :as msg}]
   (println "Remote evaluation...")
   (println "FORM: " form)
-  (let [thread (ct)
-        f (read-string form)
-        val (safe-reval thread frame-num f true read-string)]
-    (println "VAL: " val)
+  (let [val (jdi/my-reval frame-num form)
+        f (read-string form)]
     (t/send transport (response-for msg :status :done :value val))))
 
 (defmethod handle-msg "refresh"
@@ -138,6 +136,13 @@
  (debug "Refreshed.")
  (t/send transport (response-for msg :status :done :msg "OK"))
  (debug "Refresh complete."))
+
+(defmethod handle-msg "attach"
+ [handler {:keys [op session interrupt-id id transport port] :as msg}]
+ (println "Attaching debugger...")
+ ((alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
+ (reset! vm-atom (jdi/setup-debugger port)))
+ (t/send transport (response-for msg :status :done)))
  
 (defmethod handle-msg :default 
   [handler msg]
@@ -147,8 +152,6 @@
 (defn debug-middleware
  "Lein middleware to handle debug requests." 
  [handler]
- (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
- (reset! vm-atom (jdi/setup-debugger (System/getenv "CLOJURE_DEBUG_JDWP_PORT")))
  (fn [msg]
   (handle-msg handler msg)))
     
@@ -156,7 +159,12 @@
   #'debug-middleware
   {:expects #{}
    :requires #{"eval"}
-   :handles {"list-threads"
+   :handles {
+            "attach"
+                {:doc "Attach to a remove VM."
+                :requires {}
+                :returns {"result" "A map containig :status :done"}}
+            "list-threads"
                 {:doc "List the threads in the VM."
                  :requires {}
                  :returns {"result" "A map containing :status :done :threads threads"}}
