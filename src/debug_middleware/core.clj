@@ -10,10 +10,6 @@
  (:import com.sun.jdi.Bootstrap
           com.sun.jdi.request.BreakpointRequest))
  
-(def vm-atom
- "Atom to hold the virutal machine"
- (atom nil))
- 
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] 
                       (println "Received message " msg)
@@ -22,24 +18,21 @@
 (defmethod handle-msg "list-vars"
  [handler {:keys [op session id transport thread-name frame-index] :as msg}]
  (println "LISTING VARS")
-;  (let [vars (jdi/my-list-vars @vm-atom thread-name frame-index)]
- (let [thread (jdi/get-thread-with-name (vm) thread-name)
+ (let [thread (jdi/get-thread-with-name thread-name)
        vars (locals thread frame-index)]
-      ;  my-vars (jdi/my-list-vars thread frame-index)]
   (println "VARS: " vars)
-  ; (println "MY-VARS: " my-vars)
   (t/send transport (response-for msg :status :done :vars vars))))
    
 (defmethod handle-msg "list-frames"
  [handler {:keys [op session thread-name id transport] :as msg}]
  (debug "LISTING FRAMES")
- (let [frames (jdi/my-list-frames @vm-atom thread-name)]
+ (let [frames (jdi/my-list-frames thread-name)]
   (t/send transport (response-for msg :status :done :frames frames))))
 
 (defmethod handle-msg "list-threads"
  [handler {:keys [op session interrup-id id transport] :as msg}]
  (println "LISTING THREADS")
- (let [threads (jdi/my-list-threads @vm-atom)]
+ (let [threads (jdi/my-list-threads)]
   (t/send transport (response-for msg :status :done :threads threads))))
   
 (defmethod handle-msg "get-event"
@@ -76,8 +69,7 @@
 (defmethod handle-msg "continue"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
   (debug "Continue request received.")
-  (jdi/my-continue @vm-atom)
-  ; (continue-thread (ct))
+  (jdi/my-continue)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "get-completions"
@@ -140,8 +132,8 @@
 (defmethod handle-msg "attach"
  [handler {:keys [op session interrupt-id id transport port] :as msg}]
  (println "Attaching debugger...")
- ((alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
- (reset! vm-atom (jdi/setup-debugger port)))
+ (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
+ (jdi/setup-debugger port)
  (t/send transport (response-for msg :status :done)))
  
 (defmethod handle-msg :default 
