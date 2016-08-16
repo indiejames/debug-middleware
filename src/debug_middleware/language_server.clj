@@ -100,6 +100,7 @@
 (defn refresh
  "Refresh namespaces that have changed and restart application" 
  []
+ (println "REFRESHING NAMESPACES")
  (binding [*ns* *ns*]
   (try
     (println "Requiring 'user")

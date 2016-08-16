@@ -104,28 +104,26 @@
 (defn my-set-breakpoint
  "Set a breakpoint"
  [src-path line]
- (when-let [loc (find-loc-for-src-line (vm) src-path line)]
-   (let [_ (println "Found location...............")
-         _ (println loc)
-         evt-req-mgr (.eventRequestManager (vm))
-         breq (.createBreakpointRequest evt-req-mgr loc)]
-      (.setSuspendPolicy breq com.sun.jdi.request.BreakpointRequest/SUSPEND_EVENT_THREAD)
-      (.enable breq))
-   loc))
-   
+ ;; TODO modify cdt to return a value I can check here to see if the set worked
+ (line-bp src-path line))
+
+(defn set-exception-breakpoint
+ "Set a breakpoint for caught or uncaught exceptions."
+ [type]
+ (let [type-keyword (keyword type)]
+   (set-catch Throwable type-keyword)))
+
 (defn my-clear-breakpoints
- "Delete all the breakpoints for a given source file."
- [src]
- (let [evt-req-manager (.eventRequestManager (vm))
-       reqs (.breakpointRequests evt-req-manager)
-       src-reqs (filter (fn [req]
-                         (let [loc (.location req)
-                               src-path (.sourcePath loc "Clojure")]
-                           (.endsWith src src-path)))
-                        reqs)]
-   (.deleteEventRequests evt-req-manager src-reqs)))
+ "Delete all the breakpoints (line and exception)."
+ []
+;  (delete-all-catches)
+ (delete-all-breakpoints))
                          
-   
+(defn clear-all-exception-breakpoints
+ "Deletes all breakpoints for exceptions."
+ []
+ (delete-all-catches))
+
 (defn- my-step
  "Step into or over called functions. Depth must be either StepRequest.STEP_INTO or
  StepRequest.STEP_OVER"
@@ -152,6 +150,19 @@
  "Resume execution of a paused VM."
  []
  (continue-vm))
+
+(defn- handle-exception-event
+  [evt]
+  (println "EXCEPTION EVENT")
+  (let [tr (.thread evt)
+        loc (.catchLocation evt)
+        src (.sourceName loc)
+        line (.lineNumber loc)
+        evt-map (generate-string {:event-type "exception"
+                                  :thread (.name tr)
+                                  :src src
+                                  :line line})]
+    (go (>! event-channel evt-map))))
 
 (defn- handle-breakpoint-event
   [evt]
@@ -208,4 +219,5 @@
  (cdt-attach port)
  (when  (vm)
    (println "Attached to process ")
-   (set-handler breakpoint-handler handle-breakpoint-event)))
+   (set-handler breakpoint-handler handle-breakpoint-event)
+   (set-handler exception-handler handle-exception-event)))

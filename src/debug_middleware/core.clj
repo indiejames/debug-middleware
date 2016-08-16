@@ -19,7 +19,7 @@
  [handler {:keys [op session id transport thread-name frame-index] :as msg}]
  (println "LISTING VARS")
  (let [thread (jdi/get-thread-with-name thread-name)
-       vars (locals thread frame-index)]
+       vars (locals (ct) frame-index)]
   (println "VARS: " vars)
   (t/send transport (response-for msg :status :done :vars vars))))
    
@@ -56,15 +56,21 @@
   [handler {:keys [op line path session interrupt-id id transport] :as msg}]
   (println "SETTING BREAKPOINT")
   (println "MSG: " msg)
-  (line-bp path line)
+  (jdi/my-set-breakpoint path line)
   (t/send transport (response-for msg :status :done)))
     
 (defmethod handle-msg "clear-breakpoints"
-  [handler {:keys [op path session interrupt-id id transport] :as msg}]
-  (debug "CLEARING BREAKPOINTS")
-  (debug "MSG: " msg)
-  (delete-all-breakpoints)
+  [handler {:keys [op session interrupt-id id transport] :as msg}]
+  (println "CLEARING BREAKPOINTS")
+  (jdi/my-clear-breakpoints)
   (t/send transport (response-for msg :status :done)))
+
+(defmethod handle-msg "set-exception-breakpoint"
+  [handler {:keys [op sesssion interrupt-id transport type] :as msg}]
+  (println "SETTING EXCEPTION BREAKPOINT: " type)
+  (jdi/clear-all-exception-breakpoints)
+  (when (contains? #{"all" "uncaught"} type)
+    (jdi/set-exception-breakpoint type)))
 
 (defmethod handle-msg "continue"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
@@ -152,18 +158,18 @@
   {:expects #{}
    :requires #{"eval"}
    :handles {
-            "attach"
+             "attach"
                 {:doc "Attach to a remove VM."
-                :requires {}
-                :returns {"result" "A map containig :status :done"}}
-            "list-threads"
+                 :requires {}
+                 :returns {"result" "A map containig :status :done"}}
+             "list-threads"
                 {:doc "List the threads in the VM."
                  :requires {}
                  :returns {"result" "A map containing :status :done :threads threads"}}
-            "reval"
+             "reval"
                 {:doc "Evalute an expression in the context of a thread frame."
-                :requires {}
-                :returns {"result" "The result message with :status :done"}}
+                 :requires {}
+                 :returns {"result" "The result message with :status :done"}}
              "get-event"
                 {:doc "Request that the middleware send the next event as a response to this message."
                  :requires {}
