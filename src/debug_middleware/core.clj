@@ -138,7 +138,6 @@
 (defmethod handle-msg "attach"
  [handler {:keys [op session interrupt-id id transport port] :as msg}]
  (println "Attaching debugger...")
- (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
  (jdi/setup-debugger port)
  (t/send transport (response-for msg :status :done)))
  
