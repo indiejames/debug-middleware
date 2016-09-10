@@ -100,6 +100,8 @@
 (defn refresh
  "Refresh namespaces that have changed and restart application" 
  []
+ (println "REFRESHING NAMESPACES")
+ (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
  (binding [*ns* *ns*]
   (try
     (println "Requiring 'user")
