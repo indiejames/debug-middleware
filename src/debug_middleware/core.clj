@@ -19,7 +19,8 @@
  [handler {:keys [op session id transport thread-name frame-index] :as msg}]
  (println "LISTING VARS")
  (let [thread (jdi/get-thread-with-name thread-name)
-       vars (locals (ct) frame-index)]
+       vars (locals (ct) frame-index)
+       vars (print-str vars)]
   (println "VARS: " vars)
   (t/send transport (response-for msg :status :done :vars vars))))
    
