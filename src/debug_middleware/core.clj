@@ -20,7 +20,7 @@
  (println "LISTING VARS")
  (let [thread (jdi/get-thread-with-name thread-name)
        vars (locals (ct) frame-index)
-       vars (print-str vars)]
+       vars (pr-str vars)]
   (println "VARS: " vars)
   (t/send transport (response-for msg :status :done :vars vars))))
    
