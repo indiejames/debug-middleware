@@ -62,8 +62,8 @@
  (println "Finding location of " symbol-str " in namespace" ns-str)
  (try
   ;; Binding a thread-local copy of *ns* so changes
-  ;; are isolated to this thread (
-  ;; see https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
+  ;; are isolated to this thread.
+  ;; See https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
   (binding [*ns* *ns*]
     (in-ns (symbol ns-str))
     (println "In namespace " ns-str)
@@ -81,9 +81,10 @@
                       sym)
           {:keys [file line]} (meta (eval `(var ~the-var)))
           file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))]
-      (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\\.m2/repository/(.+\\.jar))!/(.+)" file-path)]
+      (println "FILE PATH: " file-path)
+      (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)" file-path)]
         (let [decompressed-path (str (System/getProperty "user.home")
-                                    "/.lein/tmp-atom-jars/"
+                                    "/.lein/tmp-vscode-jars/"
                                     partial-jar-path)
               decompressed-file-path (str decompressed-path "/" within-file-path)
               decompressed-path-dir (clojure.java.io/file decompressed-path)]
@@ -91,8 +92,10 @@
               (println "decompressing" jar-path "to" decompressed-path)
               (.mkdirs decompressed-path-dir)
               (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
+          (println "DECOMPRESSED FILE PATH: " decompressed-file-path "   LINE: " line)
           [decompressed-file-path line])
-        [file-path line])))
+        (do (println "FILE PATH: " file-path "   LINE: " line)
+            [file-path line]))))
   (catch Exception e
     (println (.getMessage e))
     (println (.stackTrace e)))))
