@@ -5,7 +5,12 @@
            [clojure.java.io :as io]
            [compliment.core])
  (:import java.io.PushbackReader
-          java.io.StringReader))
+          java.io.StringReader
+          com.strobel.decompiler.Decompiler
+          com.strobel.decompiler.DecompilerSettings
+          com.strobel.decompiler.PlainTextOutput
+          java.io.FileOutputStream
+          java.io.OutputStreamWriter))
 
 (defn make-proxy
  "Returns a proxy for a PushbackReader that returns a count of the number of characters
@@ -24,6 +29,24 @@
    (if (> pos position)
     form
     (recur (read rdr) @rdr)))))
+
+(defn decompile
+ [file]
+ (let [[_ class-path file] (re-find #"(.*)/(.*\.java)" file)
+       class-name (str/replace file #"\.java" "")
+       decompressed-path (str (System/getProperty "user.home") "/.lein/tmp-vscode-java" class-path)
+       decompressed-file-path (str decompressed-path "/" file)
+       decompressed-path-dir (clojure.java.io/file decompressed-path)
+       settings (DecompilerSettings/javaDefaults)]
+   (when-not (.exists decompressed-path-dir)
+     (.mkdirs decompressed-path-dir))
+   (let [fstream (FileOutputStream. decompressed-file-path)
+         writer (OutputStreamWriter. fstream)
+         full-class-path (str/replace-first (str class-path "/" class-name) #"/" "")]
+     (println "decompiling" full-class-path "to" decompressed-file-path)
+     (Decompiler/decompile full-class-path (PlainTextOutput. writer) settings)
+     decompressed-file-path)))
+   
 
 (defn- format-doc
  "Fomrat a docstring using markdown."
@@ -55,7 +78,34 @@
     (catch Throwable e
       (println (.getMessage e))
       (println (.stackTrace e))))))
-      
+
+(defn get-src-path
+  "Returns the readable source path for the given internal source path. Will
+  expand jar files as necessary to make the file readable by the editor."
+  [internal-src-path]
+  (let [java-regex #"(.*)\.java"
+        jar-regex #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)"]
+    (let [file (if-let [[_ base-java-path] (re-find java-regex internal-src-path)]
+                 ;; Java file
+                (let [class-file (str base-java-path ".class")]
+                  (.getPath (.getResource (clojure.lang.RT/baseLoader) class-file)))
+                internal-src-path)]
+      (if-let [[_ jar-path partial-jar-path within-file-path] (re-find jar-regex file)]
+        (let [decompressed-path (str (System/getProperty "user.home")
+                                    "/.lein/tmp-vscode-jars/"
+                                    partial-jar-path)
+              decompressed-file-path (str decompressed-path "/" within-file-path)
+              decompressed-path-dir (clojure.java.io/file decompressed-path)]
+          (when-not (.exists decompressed-path-dir)
+              (println "decompressing" jar-path "to" decompressed-path)
+              (.mkdirs decompressed-path-dir)
+              (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
+          (println "DECOMPRESSED FILE PATH: " decompressed-file-path)
+          decompressed-file-path)
+        (do (println "FILE PATH: " file)
+            file)))))
+  
+
 (defn find-definition
  "Find the location where the given symbol is defined."
  [ns-str symbol-str]
@@ -80,6 +130,7 @@
                               symbol)
                       sym)
           {:keys [file line]} (meta (eval `(var ~the-var)))
+          _ (println "FILE: " file)
           file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))]
       (println "FILE PATH: " file-path)
       (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)" file-path)]

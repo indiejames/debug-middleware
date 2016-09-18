@@ -50,6 +50,12 @@
         (let [loc (.location frame)
               line (.lineNumber loc "Clojure")
               src-path (.sourcePath loc "Clojure")
+              _ (println "SRC-PATH: " src-path)
+              ;; TODO I think this needs to be run in the debugged REPL
+              ; resource (.getResource (clojure.lang.RT/baseLoader) src-path)
+              ; _ (println "RESOURCE: " resource)
+              ; file-path (.getPath resource)
+              ; _ ("FILE-PATH: " file-path)
               src-name (.sourceName loc "Clojure")]
            {:srcPath src-path
             :srcName src-name
