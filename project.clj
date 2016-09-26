@@ -7,7 +7,6 @@
   :dependencies [[compliment "0.2.7"]
                  [cdt "1.2.6.3"]
                  [cheshire "5.6.3"]
-                 [org.jboss.windup.decompiler.procyon/windup-procyon-compilertools "1.0.0.20160510"]
                  [org.clojure/tools.namespace "0.2.11"]
                  [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/clojure "1.8.0"]

@@ -218,11 +218,22 @@
          :default
           (println "Unknown event"))))
    (recur (.remove evt-queue))))
+
+(defn- attach
+  "Repeatedly try to attach using JDI."
+  [port num-tries]
+  (loop [n num-tries]
+    (when (and (nil? (try (cdt-attach port)
+                          true
+                          (catch Exception e nil)))
+               (> n 0))
+          (Thread/sleep 1000)
+          (recur (dec n)))))
            
 (defn setup-debugger
  "Intialize the debugger by attaching to another process to be debugged on the given port."
  [port]
- (cdt-attach port)
+ (attach port 1000)
  (when  (vm)
    (println "Attached to process ")
    (set-handler breakpoint-handler handle-breakpoint-event)

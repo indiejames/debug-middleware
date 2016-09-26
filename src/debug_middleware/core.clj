@@ -31,10 +31,18 @@
   (t/send transport (response-for msg :status :done :frames frames))))
 
 (defmethod handle-msg "list-threads"
- [handler {:keys [op session interrup-id id transport] :as msg}]
+ [handler {:keys [op session interrupt-id id transport] :as msg}]
  (println "LISTING THREADS")
  (let [threads (jdi/my-list-threads)]
   (t/send transport (response-for msg :status :done :threads threads))))
+
+(defmethod handle-msg "get-source-paths"
+  [handler {:keys [op session interrupt-id id transport source-files] :as msg}]
+  (println "FINDING SOURCE FILES")
+  (println "INPUT SRC FILES: " source-files)
+  (let [full-src-files (map lang/get-src-path source-files)]
+    (t/send transport (response-for msg :status :done :paths full-src-files)))) 
+   
   
 (defmethod handle-msg "get-event"
  [handler {:keys [op session interrup-id id transport] :as msg}]

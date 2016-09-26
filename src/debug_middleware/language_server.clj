@@ -6,9 +6,6 @@
            [compliment.core])
  (:import java.io.PushbackReader
           java.io.StringReader
-          com.strobel.decompiler.Decompiler
-          com.strobel.decompiler.DecompilerSettings
-          com.strobel.decompiler.PlainTextOutput
           java.io.FileOutputStream
           java.io.OutputStreamWriter))
 
@@ -30,24 +27,6 @@
     form
     (recur (read rdr) @rdr)))))
 
-(defn decompile
- [file]
- (let [[_ class-path file] (re-find #"(.*)/(.*\.java)" file)
-       class-name (str/replace file #"\.java" "")
-       decompressed-path (str (System/getProperty "user.home") "/.lein/tmp-vscode-java" class-path)
-       decompressed-file-path (str decompressed-path "/" file)
-       decompressed-path-dir (clojure.java.io/file decompressed-path)
-       settings (DecompilerSettings/javaDefaults)]
-   (when-not (.exists decompressed-path-dir)
-     (.mkdirs decompressed-path-dir))
-   (let [fstream (FileOutputStream. decompressed-file-path)
-         writer (OutputStreamWriter. fstream)
-         full-class-path (str/replace-first (str class-path "/" class-name) #"/" "")]
-     (println "decompiling" full-class-path "to" decompressed-file-path)
-     (Decompiler/decompile full-class-path (PlainTextOutput. writer) settings)
-     decompressed-file-path)))
-   
-
 (defn- format-doc
  "Fomrat a docstring using markdown."
  [doc-string]
@@ -63,47 +42,59 @@
   ;; Binding a thread-local copy of *ns* so changes
   ;; are isolated to this thread (
   ;; see https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
-  (binding [*ns* *ns*]
-   (try
-    (in-ns (symbol ns-str))
-    (require 'clojure.repl)
-    (let [sym (symbol var-str)
-          the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
+  (let [name-space (find-ns (symbol ns-str))
+        sym (symbol var-str)]
+    (println "FOUND NAMESPACE: " name-space)
+    (binding [*ns* name-space]
+      (try 
+        (require 'clojure.repl)
+        (let [the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
                                ns-name)
-                      sym)
-          rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
-          rval (format-doc rval)
-          rval (if (= rval "") "NO VALUE" rval)]
-      rval)
-    (catch Throwable e
-      (println (.getMessage e))
-      (println (.stackTrace e))))))
+                          sym)
+              rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
+              rval (format-doc rval)
+              rval (if (= rval "") "NO VALUE" rval)]
+          (println "DOC: " rval)
+          rval)
+        (catch Throwable e
+          (println (.getMessage e))
+          (println (.stackTrace e)))))))              
+  ; (binding [*ns* *ns*]
+  ;  (try
+  ;   (in-ns (symbol ns-str))
+  ;   (require 'clojure.repl)
+  ;   (let [sym (symbol var-str)
+  ;         the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
+  ;                              ns-name)
+  ;                     sym)
+  ;         rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
+  ;         rval (format-doc rval)
+  ;         rval (if (= rval "") "NO VALUE" rval)]
+  ;     rval)
+  ;   (catch Throwable e
+  ;     (println (.getMessage e))
+  ;     (println (.stackTrace e))))))
 
 (defn get-src-path
   "Returns the readable source path for the given internal source path. Will
   expand jar files as necessary to make the file readable by the editor."
-  [internal-src-path]
-  (let [java-regex #"(.*)\.java"
+  [file]
+  (let [file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))
         jar-regex #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)"]
-    (let [file (if-let [[_ base-java-path] (re-find java-regex internal-src-path)]
-                 ;; Java file
-                (let [class-file (str base-java-path ".class")]
-                  (.getPath (.getResource (clojure.lang.RT/baseLoader) class-file)))
-                internal-src-path)]
-      (if-let [[_ jar-path partial-jar-path within-file-path] (re-find jar-regex file)]
-        (let [decompressed-path (str (System/getProperty "user.home")
-                                    "/.lein/tmp-vscode-jars/"
-                                    partial-jar-path)
-              decompressed-file-path (str decompressed-path "/" within-file-path)
-              decompressed-path-dir (clojure.java.io/file decompressed-path)]
-          (when-not (.exists decompressed-path-dir)
-              (println "decompressing" jar-path "to" decompressed-path)
-              (.mkdirs decompressed-path-dir)
-              (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
-          (println "DECOMPRESSED FILE PATH: " decompressed-file-path)
-          decompressed-file-path)
-        (do (println "FILE PATH: " file)
-            file)))))
+    (if-let [[_ jar-path partial-jar-path within-file-path] (re-find jar-regex file-path)]
+      (let [decompressed-path (str (System/getProperty "user.home")
+                                   "/.lein/tmp-vscode-jars/"
+                                   partial-jar-path)
+            decompressed-file-path (str decompressed-path "/" within-file-path)
+            decompressed-path-dir (clojure.java.io/file decompressed-path)]
+        (when-not (.exists decompressed-path-dir)
+          (println "decompressing" jar-path "to" decompressed-path)
+          (.mkdirs decompressed-path-dir)
+          (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
+        (println "DECOMPRESSED FILE PATH: " decompressed-file-path)
+        decompressed-file-path))
+    (do (println "FILE PATH: " file-path)
+        file-path)))
   
 
 (defn find-definition
