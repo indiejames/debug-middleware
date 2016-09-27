@@ -27,13 +27,27 @@
     form
     (recur (read rdr) @rdr)))))
 
-(defn- format-doc
+(defn format-doc
+ "Fomrat a docstring using markdown."
+ [doc-string]
+ (println "DOC STRING: " doc-string)
+ (if (seq doc-string)
+  (let [[_ sym sig desc] (re-matches #"(?s).*?\n(.*?)\n(.*?)\n(.*)" doc-string)
+        sym (str "[" sym "]()")
+        sig (str "```\n" sig "\n```")
+        desc (str "```\n" desc "\n```")]
+    [sym sig desc])
+  doc-string))
+
+(defn- format-docs
  "Fomrat a docstring using markdown."
  [doc-string]
  (if (seq doc-string)
   (let [terms (rest (str/split doc-string #"\n"))
-        sym (str "[" (str/trim (first terms)) "]()\n")]
-    (str sym (str/join "\n" (rest terms))))
+        sym (str "[" (str/trim (first terms)) "]()\n")
+        sig (nth terms 1)
+        desc (str "```\n" (str/join "\n" (rest (rest terms))) "```\n")]
+    [sym sig desc]) 
   doc-string))
 
 (defn get-doc 
