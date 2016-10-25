@@ -28,9 +28,8 @@
     (recur (read rdr) @rdr)))))
 
 (defn format-doc
- "Fomrat a docstring using markdown."
+ "Format a docstring using markdown."
  [doc-string]
- (println "DOC STRING: " doc-string)
  (if (seq doc-string)
   (let [[_ sym sig desc] (re-matches #"(?s).*?\n(.*?)\n(.*?)\n(.*)" doc-string)
         sym (str "[" sym "]()")
