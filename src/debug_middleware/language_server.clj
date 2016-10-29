@@ -29,7 +29,8 @@
 
 (defn format-doc
  "Format a docstring using markdown."
- [{:keys [doc macro arglists name]} meta]
+ [{:keys [doc macro arglists name] :as meta}]
+ (println "META: " meta)
  (when (seq meta)
   (let [type (cond
                macro "macro"
@@ -56,8 +57,8 @@
         (let [the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
                                ns-name)
                           sym)
-              rval (or (with-out-str (eval `(clojure.repl/meta ~the-var))) {})
-              rval (format-doc meta)
+              rval (or (eval `(clojure.core/meta ~the-var)) {}
+              rval (format-doc rval)
               rval (if (= rval "") "NO VALUE" rval)]
           (println "DOC: " rval)
           rval)
