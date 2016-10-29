@@ -29,18 +29,15 @@
 
 (defn format-doc
  "Format a docstring using markdown."
- [{:keys [doc macro arglists name] :as meta}]
- (println "META: " meta)
- (when (seq meta)
-  (let [type (cond
-               macro "macro"
-               arglists "function"
-               :else "var")
-        type (str "[" type "]()")
-        sym (str type " **" name "**")
-        sig (if arglists (str "```\n" arglists "\n```") "")
-        desc (str "```\n" doc "\n```")]
-    [sym sig desc])))
+ [doc-string]
+ (if (seq doc-string)
+  (let [[_ sym sig desc] (re-matches #"(?s).*?\n(.*?)\n(.*?)\n(.*)" doc-string)
+        ; sym (str "[" sym "]()")
+        sym (str "**" sym "**")
+        sig (str "```\n" sig "\n```")
+        desc (str "```\n" desc "\n```")]
+    [sym sig desc])
+  doc-string))
 
 (defn get-doc 
  "Find documentation for the given var"
@@ -51,35 +48,20 @@
   (let [name-space (find-ns (symbol ns-str))
         sym (symbol var-str)]
     (println "FOUND NAMESPACE: " name-space)
-    (binding [*ns* name-space]
+    (binding [*ns* name-space *e *e]
       (try 
         (require 'clojure.repl)
         (let [the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
                                ns-name)
                           sym)
-              rval (or (eval `(clojure.core/meta ~the-var)) {}
+              rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
               rval (format-doc rval)
               rval (if (= rval "") "NO VALUE" rval)]
           (println "DOC: " rval)
           rval)
         (catch Throwable e
           (println (.getMessage e))
-          (println (.stackTrace e)))))))              
-  ; (binding [*ns* *ns*]
-  ;  (try
-  ;   (in-ns (symbol ns-str))
-  ;   (require 'clojure.repl)
-  ;   (let [sym (symbol var-str)
-  ;         the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
-  ;                              ns-name)
-  ;                     sym)
-  ;         rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
-  ;         rval (format-doc rval)
-  ;         rval (if (= rval "") "NO VALUE" rval)]
-  ;     rval)
-  ;   (catch Throwable e
-  ;     (println (.getMessage e))
-  ;     (println (.stackTrace e))))))
+          (println (.stackTrace e)))))))     
 
 (defn get-src-path
   "Returns the readable source path for the given internal source path. Will
@@ -111,7 +93,7 @@
   ;; Binding a thread-local copy of *ns* so changes
   ;; are isolated to this thread.
   ;; See https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
-  (binding [*ns* *ns*]
+  (binding [*ns* *ns* *e *e]
     (in-ns (symbol ns-str))
     (println "In namespace " ns-str)
   ;;(clojure.core/require [clojure.core :refer :all])
@@ -153,7 +135,7 @@
  []
  (println "REFRESHING NAMESPACES")
  (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
- (binding [*ns* *ns*]
+ (binding [*ns* *ns* *e *e]
   (try
     (println "Requiring 'user")
     (require 'user)
@@ -185,36 +167,7 @@
     (println "Error resolving...")
     (println (.getMessage e))
     (.printStackTrace e)))))
-
-;; TODO consider moving this to an eval call to avoid binding issues
-; (defn refresh
-;  "Reload namespaces that have changed."
-;  []
-;  (do
-;    (try
-;      (require 'user)
-;      (catch java.io.FileNotFoundException e
-;        (println (str "No user namespace defined. Defaulting to clojure.tools.namespace.repl/refresh.\n"))))
-;    (try
-;      (require 'clojure.tools.namespace.repl)
-;      (catch java.io.FileNotFoundException e
-;        (println "clojure.tools.namespace.repl not available. Add proto-repl in your project.clj as a dependency to allow refresh. See https://clojars.org/proto-repl"))) 
-;    (let [user-reset 'user/reset
-;          ctnr-refresh 'clojure.tools.namespace.repl/refresh
-;          result (cond
-;                   (find-var user-reset)
-;                   ((resolve user-reset))
-                  
-;                   (find-var ctnr-refresh)
-;                   ((resolve ctnr-refresh))
-                  
-;                   :else
-;                     (println (str "You can use your own refresh function, just define reset function in user namespace\n"
-;                                   "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
-;       (when (isa? (type result) Exception)
-;         (println (.getMessage result)))
-;       result)))
-      
+    
 (defn run-all-tests
  "Runs all tests in the project."
  []
@@ -223,7 +176,7 @@
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."
  [ns-str]
- (binding [*ns* *ns*]
+ (binding [*ns* *ns* *e *e]
     (in-ns (symbol ns-str))
     (println "In namespace " ns-str)
     (clojure.test/run-tests)))
