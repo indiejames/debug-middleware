@@ -29,25 +29,17 @@
 
 (defn format-doc
  "Format a docstring using markdown."
- [doc-string]
- (if (seq doc-string)
-  (let [[_ sym sig desc] (re-matches #"(?s).*?\n(.*?)\n(.*?)\n(.*)" doc-string)
-        sym (str "[" sym "]()")
-        sig (str "```\n" sig "\n```")
-        desc (str "```\n" desc "\n```")]
-    [sym sig desc])
-  doc-string))
-
-(defn- format-docs
- "Fomrat a docstring using markdown."
- [doc-string]
- (if (seq doc-string)
-  (let [terms (rest (str/split doc-string #"\n"))
-        sym (str "[" (str/trim (first terms)) "]()\n")
-        sig (nth terms 1)
-        desc (str "```\n" (str/join "\n" (rest (rest terms))) "```\n")]
-    [sym sig desc]) 
-  doc-string))
+ [{:keys [doc macro arglists name]} meta]
+ (when (seq meta)
+  (let [type (cond
+               macro "macro"
+               arglists "function"
+               :else "var")
+        type (str "[" type "]()")
+        sym (str type " **" name "**")
+        sig (if arglists (str "```\n" arglists "\n```") "")
+        desc (str "```\n" doc "\n```")]
+    [sym sig desc])))
 
 (defn get-doc 
  "Find documentation for the given var"
@@ -64,8 +56,8 @@
         (let [the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
                                ns-name)
                           sym)
-              rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
-              rval (format-doc rval)
+              rval (or (with-out-str (eval `(clojure.repl/meta ~the-var))) {})
+              rval (format-doc meta)
               rval (if (= rval "") "NO VALUE" rval)]
           (println "DOC: " rval)
           rval)
@@ -168,9 +160,9 @@
     (catch java.io.FileNotFoundException e
       (println (str "No user namespace defined. Defaulting to clojure.tools.namespace.repl/refresh.\n"))))
   (try
-    (println "Requiring 'clojure.tools.namespace.repl")
+    (println "Requiring clojure.tools.namespace.repl")
     (require 'clojure.tools.namespace.repl)
-    (println "'clojure.tools.namespace.repl required.")
+    (println "clojure.tools.namespace.repl required.")
     (catch java.io.FileNotFoundException e
       (println "clojure.tools.namespace.repl not available. Add as a dependency to allow refresh.")))
   (try
@@ -193,6 +185,35 @@
     (println (.getMessage e))
     (.printStackTrace e)))))
 
+;; TODO consider moving this to an eval call to avoid binding issues
+; (defn refresh
+;  "Reload namespaces that have changed."
+;  []
+;  (do
+;    (try
+;      (require 'user)
+;      (catch java.io.FileNotFoundException e
+;        (println (str "No user namespace defined. Defaulting to clojure.tools.namespace.repl/refresh.\n"))))
+;    (try
+;      (require 'clojure.tools.namespace.repl)
+;      (catch java.io.FileNotFoundException e
+;        (println "clojure.tools.namespace.repl not available. Add proto-repl in your project.clj as a dependency to allow refresh. See https://clojars.org/proto-repl"))) 
+;    (let [user-reset 'user/reset
+;          ctnr-refresh 'clojure.tools.namespace.repl/refresh
+;          result (cond
+;                   (find-var user-reset)
+;                   ((resolve user-reset))
+                  
+;                   (find-var ctnr-refresh)
+;                   ((resolve ctnr-refresh))
+                  
+;                   :else
+;                     (println (str "You can use your own refresh function, just define reset function in user namespace\n"
+;                                   "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
+;       (when (isa? (type result) Exception)
+;         (println (.getMessage result)))
+;       result)))
+      
 (defn run-all-tests
  "Runs all tests in the project."
  []

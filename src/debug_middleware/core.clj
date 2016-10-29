@@ -75,11 +75,12 @@
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "set-exception-breakpoint"
-  [handler {:keys [op sesssion interrupt-id transport type] :as msg}]
-  (println "SETTING EXCEPTION BREAKPOINT: " type)
+  [handler {:keys [op sesssion interrupt-id transport type class] :as msg}]
+  (println "SETTING EXCEPTION BREAKPOINT: " type " " class)
   (jdi/clear-all-exception-breakpoints)
   (when (contains? #{"all" "uncaught"} type)
-    (jdi/set-exception-breakpoint type)))
+    (jdi/set-exception-breakpoint type class))
+  (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "continue"
   [handler {:keys [op session interrupt-id id transport] :as msg}]

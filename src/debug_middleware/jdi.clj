@@ -115,9 +115,10 @@
 
 (defn set-exception-breakpoint
  "Set a breakpoint for caught or uncaught exceptions."
- [type]
- (let [type-keyword (keyword type)]
-   (set-catch Throwable type-keyword)))
+ [type classStr]
+ (let [type-keyword (keyword type)
+       class (resolve (symbol classStr))]     
+   (set-catch class type-keyword)))
 
 (defn my-clear-breakpoints
  "Delete all the breakpoints (line and exception)."
