@@ -49,14 +49,16 @@
   (map (fn [frame]
         (let [loc (.location frame)
               line (.lineNumber loc "Clojure")
-              src-path (.sourcePath loc "Clojure")
+              src-path (try (.sourcePath loc "Clojure")
+                            (catch Exception e ""))
               _ (println "SRC-PATH: " src-path)
               ;; TODO I think this needs to be run in the debugged REPL
               ; resource (.getResource (clojure.lang.RT/baseLoader) src-path)
               ; _ (println "RESOURCE: " resource)
               ; file-path (.getPath resource)
               ; _ ("FILE-PATH: " file-path)
-              src-name (.sourceName loc "Clojure")]
+              src-name (try (.sourceName loc "Clojure")
+                            (catch Exception e ""))]
            {:srcPath src-path
             :srcName src-name
             :line line})) 
@@ -131,27 +133,36 @@
  []
  (delete-all-catches))
 
-(defn- my-step
- "Step into or over called functions. Depth must be either StepRequest.STEP_INTO or
- StepRequest.STEP_OVER"
-  [thread-name depth]
-  (let [evt-req-mgr (.eventRequestManager (vm))
-        thread-ref (get-thread-with-name vm thread-name)
-        step-req (.createStepRequest evt-req-mgr thread-ref StepRequest/STEP_LINE depth)]
-   (.addCountFilter step-req 1) ;; one step only
-   (.setSuspendPolicy step-req com.sun.jdi.request.EventRequest/SUSPEND_EVENT_THREAD)
-   (.enable step-req)
-   (.resume (vm))))
+; (defn- my-step
+;  "Step into or over called functions. Depth must be either StepRequest.STEP_INTO or
+;  StepRequest.STEP_OVER"
+;   [thread-name depth]
+;   (let [evt-req-mgr (.eventRequestManager (vm))
+;         thread-ref (get-thread-with-name thread-name)
+;         step-req (.createStepRequest evt-req-mgr thread-ref StepRequest/STEP_LINE depth)]
+;    (.addCountFilter step-req 1) ;; one step only
+;    (.setSuspendPolicy step-req com.sun.jdi.request.EventRequest/SUSPEND_EVENT_THREAD)
+;    (.enable step-req)
+;    (.resume (vm))))
 
 (defn my-step-into
   "Step into called functions"
   [ thread-name]
-  (step (vm) thread-name StepRequest/STEP_INTO))
+  (let [th (get-thread-with-name thread-name)]
+    (step th)))
+
+(defn my-step-out
+  "Step out of called functions"
+  [ thread-name]
+  (let [th (get-thread-with-name thread-name)]
+    (finish th)))
     
 (defn my-step-over
   "Step over called functions"
   [thread-name]
-  (step (vm) thread-name StepRequest/STEP_OVER))
+  ; (step (vm) thread-name StepRequest/STEP_OVER))
+  (let [th (get-thread-with-name thread-name)]
+    (step-over th)))
    
 (defn my-continue
  "Resume execution of a paused VM."
@@ -183,42 +194,55 @@
                                   :src src
                                   :line line})]
     (go (>! event-channel evt-map))))
-           
-(defn listen-for-events
-  "List for events on the event queue and handle them."
-  [evt-queue evt-req-mgr]
-  (println "Listening for events....")
-  (loop [evt-set (.remove evt-queue)]
-    (let [events (iterator-seq (.eventIterator evt-set))]
-      (doseq [evt events
-               :let [evt-req (.request evt)]]
-        ; (println "CDB MIDDLEWARE EVENT" evt)
-        (cond 
-          (instance? BreakpointRequest evt-req)
-          (let [tr (.thread evt)
-                loc (.location evt-req)
-                src (.sourceName loc)
-                line (.lineNumber loc)
-                evt-map (generate-string {:event-type "breakpoint"
-                                          :thread (.name tr)
-                                          :src src
-                                          :line line})]
-            (go (>! event-channel evt-map)))
+
+(defn- handle-step-event
+ [evt]
+ (let [tr (.thread evt)
+       loc (.location evt)
+       src (.sourceName loc)
+       line (.lineNumber loc)
+       evt-map (generate-string {:event-type "step"
+                                 :thread (.name tr)
+                                 :src src
+                                 :line line})]
             
-         (instance? StepRequest evt-req)
-         (let [tr (.thread evt)
-               frame (.frame tr 0)
-               loc (.location frame)
-               src (.sourceName loc)]
-           (println "At location " (.lineNumber loc))
-           (println "File: " src)
-           (flush)
-            ;; Need to remove a step request or we won't be able to make another one.
-           (.deleteEventRequest evt-req-mgr evt-req))
+    (go (>! event-channel evt-map))))
+           
+; (defn listen-for-events
+;   "List for events on the event queue and handle them."
+;   [evt-queue evt-req-mgr]
+;   (println "Listening for events....")
+;   (loop [evt-set (.remove evt-queue)]
+;     (let [events (iterator-seq (.eventIterator evt-set))]
+;       (doseq [evt events
+;                :let [evt-req (.request evt)]]
+;         ; (println "CDB MIDDLEWARE EVENT" evt)
+;         (cond 
+;           (instance? BreakpointRequest evt-req)
+;           (let [tr (.thread evt)
+;                 loc (.location evt-req)
+;                 src (.sourceName loc)
+;                 line (.lineNumber loc)
+;                 evt-map (generate-string {:event-type "breakpoint"
+;                                           :thread (.name tr)
+;                                           :src src
+;                                           :line line})]
+;             (go (>! event-channel evt-map)))
+            
+;          (instance? StepRequest evt-req)
+;          (let [tr (.thread evt)
+;                frame (.frame tr 0)
+;                loc (.location frame)
+;                src (.sourceName loc)]
+;            (println "At location " (.lineNumber loc))
+;            (println "File: " src)
+;            (flush)
+;             ;; Need to remove a step request or we won't be able to make another one.
+;            (.deleteEventRequest evt-req-mgr evt-req))
           
-         :default
-          (println "Unknown event"))))
-   (recur (.remove evt-queue))))
+; :default
+;           (println "Unknown event")
+;    (recur (.remove evt-queue))
 
 (defn- attach
   "Repeatedly try to attach using JDI."
@@ -238,4 +262,5 @@
  (when  (vm)
    (println "Attached to process ")
    (set-handler breakpoint-handler handle-breakpoint-event)
-   (set-handler exception-handler handle-exception-event)))
+   (set-handler exception-handler handle-exception-event)
+   (set-handler step-handler handle-step-event)))

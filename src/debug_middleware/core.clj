@@ -88,6 +88,24 @@
   (jdi/my-continue)
   (t/send transport (response-for msg :status :done)))
 
+(defmethod handle-msg "step-over"
+  [handler {:keys [op session thread-name interrupt-id id transport] :as msg}]
+  (debug "Step over request received.")
+  (jdi/my-step-over thread-name)
+  (t/send transport (response-for msg :status :done)))
+
+(defmethod handle-msg "step-into"
+  [handler {:keys [op session thread-name interrupt-id id transport] :as msg}]
+  (debug "Step into request received.")
+  (jdi/my-step-into thread-name)
+  (t/send transport (response-for msg :status :done)))
+
+(defmethod handle-msg "step-out"
+  [handler {:keys [op session thread-name interrupt-id id transport] :as msg}]
+  (debug "Step out request received.")
+  (jdi/my-step-out thread-name)
+  (t/send transport (response-for msg :status :done)))
+
 (defmethod handle-msg "get-completions"
  [handler {:keys [op session interrupt-id id transport ns src pos prefix] :as msg}]
  (debug "Finding completions for " prefix)
@@ -197,6 +215,18 @@
                  :returns {"result" "A map containing :msg :ok or :error msg"}}
              "continue"
                 {:doc "Continue after a breakpoint"
+                 :requires {}
+                 :returns {"result" "The result message with :status :done"}}
+             "step-over"
+                {:doc "Step over the next code block."
+                 :requires {}
+                 :returns {"result" "The result message with :status :done"}}
+             "step-into"
+                {:doc "Step into the next code block."
+                 :requires {}
+                 :returns {"result" "The result message with :status :done"}}
+             "step-out"
+                {:doc "Step out of the current code block."
                  :requires {}
                  :returns {"result" "The result message with :status :done"}}
              "clear-breakpoints"
