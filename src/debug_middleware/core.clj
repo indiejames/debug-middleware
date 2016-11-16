@@ -65,8 +65,8 @@
   [handler {:keys [op line path session interrupt-id id transport] :as msg}]
   (println "SETTING BREAKPOINT")
   (println "MSG: " msg)
-  (jdi/my-set-breakpoint path line)
-  (t/send transport (response-for msg :status :done)))
+  (let [out (with-out-str (jdi/my-set-breakpoint path line))]
+    (t/send transport (response-for msg :status :done :msg out))))
     
 (defmethod handle-msg "clear-breakpoints"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
