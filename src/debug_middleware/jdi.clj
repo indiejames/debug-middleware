@@ -123,10 +123,10 @@
    (set-catch class type-keyword)))
 
 (defn my-clear-breakpoints
- "Delete all the breakpoints (line and exception)."
- []
+ "Delete all the breakpoints in a given file."
+ [path]
 ;  (delete-all-catches)
- (delete-all-breakpoints))
+ (delelete-breakpoints-in-file path))
                          
 (defn clear-all-exception-breakpoints
  "Deletes all breakpoints for exceptions."

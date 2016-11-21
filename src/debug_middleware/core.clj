@@ -69,9 +69,9 @@
     (t/send transport (response-for msg :status :done :msg out))))
     
 (defmethod handle-msg "clear-breakpoints"
-  [handler {:keys [op session interrupt-id id transport] :as msg}]
-  (println "CLEARING BREAKPOINTS")
-  (jdi/my-clear-breakpoints)
+  [handler {:keys [op session interrupt-id id transport path] :as msg}]
+  (println "CLEARING BREAKPOINTS FOR PATH " path)
+  (jdi/my-clear-breakpoints path)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "set-exception-breakpoint"
