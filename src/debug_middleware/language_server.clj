@@ -47,7 +47,6 @@
   ;; see https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
   (let [name-space (find-ns (symbol ns-str))
         sym (symbol var-str)]
-    (println "FOUND NAMESPACE: " name-space)
     (binding [*ns* name-space *e *e]
       (try 
         (require 'clojure.repl)
@@ -57,7 +56,6 @@
               rval (or (with-out-str (eval `(clojure.repl/doc ~the-var))) "NO VALUE")
               rval (format-doc rval)
               rval (if (= rval "") "NO VALUE" rval)]
-          (println "DOC: " rval)
           rval)
         (catch Throwable e
           (println (.getMessage e))
@@ -76,26 +74,23 @@
             decompressed-file-path (str decompressed-path "/" within-file-path)
             decompressed-path-dir (clojure.java.io/file decompressed-path)]
         (when-not (.exists decompressed-path-dir)
-          (println "decompressing" jar-path "to" decompressed-path)
+          ; (println "decompressing" jar-path "to" decompressed-path)
           (.mkdirs decompressed-path-dir)
           (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
-        (println "DECOMPRESSED FILE PATH: " decompressed-file-path)
+        ; (println "DECOMPRESSED FILE PATH: " decompressed-file-path)
         decompressed-file-path))
-    (do (println "FILE PATH: " file-path)
-        file-path)))
+    file-path))
   
 
 (defn find-definition
  "Find the location where the given symbol is defined."
  [ns-str symbol-str]
- (println "Finding location of " symbol-str " in namespace" ns-str)
  (try
   ;; Binding a thread-local copy of *ns* so changes
   ;; are isolated to this thread.
   ;; See https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
   (binding [*ns* *ns* *e *e]
     (in-ns (symbol ns-str))
-    (println "In namespace " ns-str)
   ;;(clojure.core/require [clojure.core :refer :all])
     (require 'clojure.repl)
     (require 'clojure.java.shell)
@@ -109,9 +104,7 @@
                               symbol)
                       sym)
           {:keys [file line]} (meta (eval `(var ~the-var)))
-          _ (println "FILE: " file)
           file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))]
-      (println "FILE PATH: " file-path)
       (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)" file-path)]
         (let [decompressed-path (str (System/getProperty "user.home")
                                     "/.lein/tmp-vscode-jars/"
@@ -122,10 +115,8 @@
               (println "decompressing" jar-path "to" decompressed-path)
               (.mkdirs decompressed-path-dir)
               (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
-          (println "DECOMPRESSED FILE PATH: " decompressed-file-path "   LINE: " line)
           [decompressed-file-path line])
-        (do (println "FILE PATH: " file-path "   LINE: " line)
-            [file-path line]))))
+        [file-path line])))
   (catch Exception e
     (println (.getMessage e))
     (println (.stackTrace e)))))
@@ -133,7 +124,6 @@
 (defn refresh
  "Refresh namespaces that have changed and restart application" 
  []
- (println "REFRESHING NAMESPACES")
  (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
  (binding [*ns* *ns* *e *e]
   (try
@@ -160,8 +150,8 @@
                    (println (str "You can use your own refresh function, just define reset function in user namespace\n"
                                  "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
      (println "Got result.")
-     (when (isa? (type result) Exception)
-       (println (.getMessage result)))
+    ;  (when (isa? (type result) Exception)
+    ;    (println (.getMessage result)))
      result)
    (catch Exception e
     (println "Error resolving...")
@@ -178,7 +168,6 @@
  [ns-str]
  (binding [*ns* *ns* *e *e]
     (in-ns (symbol ns-str))
-    (println "In namespace " ns-str)
     (clojure.test/run-tests)))
 
 (defn run-test

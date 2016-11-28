@@ -12,47 +12,41 @@
  
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] 
-                      (println "Received message " msg)
+                      ; (println "Received message " msg)
                       (:op msg)))
 
 (defmethod handle-msg "list-vars"
  [handler {:keys [op session id transport thread-name frame-index] :as msg}]
- (println "LISTING VARS")
+;  (println "LISTING VARS")
  (let [thread (jdi/get-thread-with-name thread-name)
        vars (locals (ct) frame-index)
        vars (pr-str vars)]
-  (println "VARS: " vars)
+  ; (println "VARS: " vars)
   (t/send transport (response-for msg :status :done :vars vars))))
    
 (defmethod handle-msg "list-frames"
  [handler {:keys [op session thread-name id transport] :as msg}]
- (debug "LISTING FRAMES")
  (let [frames (jdi/my-list-frames thread-name)]
   (t/send transport (response-for msg :status :done :frames frames))))
 
 (defmethod handle-msg "list-threads"
  [handler {:keys [op session interrupt-id id transport] :as msg}]
- (println "LISTING THREADS")
  (let [threads (jdi/my-list-threads)]
   (t/send transport (response-for msg :status :done :threads threads))))
 
 (defmethod handle-msg "get-source-paths"
   [handler {:keys [op session interrupt-id id transport source-files] :as msg}]
-  (println "FINDING SOURCE FILES")
-  (println "INPUT SRC FILES: " source-files)
   (let [full-src-files (map lang/get-src-path source-files)]
     (t/send transport (response-for msg :status :done :paths full-src-files)))) 
    
   
 (defmethod handle-msg "get-event"
  [handler {:keys [op session interrup-id id transport] :as msg}]
- (debug "GETTING EVENT")
  (let [evt-map (<!! jdi/event-channel)]
   (t/send transport (response-for msg :status :done :event evt-map))))
 
 (defmethod handle-msg "require-namespace"
   [handler {:keys [op namespace session interrup-id id transport] :as msg}]
-  (debug "REQUIRING NAMESPACE " namespace)
   (let [msg (-> msg
                 (assoc :op "eval" :code (str "(require '" namespace ")"))
                 (dissoc :namespace))]
@@ -63,20 +57,16 @@
 
 (defmethod handle-msg "set-breakpoint"
   [handler {:keys [op line path session interrupt-id id transport] :as msg}]
-  (println "SETTING BREAKPOINT")
-  (println "MSG: " msg)
   (let [out (with-out-str (jdi/my-set-breakpoint path line))]
     (t/send transport (response-for msg :status :done :msg out))))
     
 (defmethod handle-msg "clear-breakpoints"
   [handler {:keys [op session interrupt-id id transport path] :as msg}]
-  (println "CLEARING BREAKPOINTS FOR PATH " path)
   (jdi/my-clear-breakpoints path)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "set-exception-breakpoint"
   [handler {:keys [op sesssion interrupt-id transport type class] :as msg}]
-  (println "SETTING EXCEPTION BREAKPOINT: " type " " class)
   (jdi/clear-all-exception-breakpoints)
   (when (contains? #{"all" "uncaught"} type)
     (jdi/set-exception-breakpoint type class))
@@ -84,46 +74,36 @@
 
 (defmethod handle-msg "continue"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
-  (debug "Continue request received.")
   (jdi/my-continue)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "step-over"
   [handler {:keys [op session thread-name interrupt-id id transport] :as msg}]
-  (debug "Step over request received.")
   (jdi/my-step-over thread-name)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "step-into"
   [handler {:keys [op session thread-name interrupt-id id transport] :as msg}]
-  (debug "Step into request received.")
   (jdi/my-step-into thread-name)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "step-out"
   [handler {:keys [op session thread-name interrupt-id id transport] :as msg}]
-  (debug "Step out request received.")
   (jdi/my-step-out thread-name)
   (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "get-completions"
  [handler {:keys [op session interrupt-id id transport ns src pos prefix] :as msg}]
- (debug "Finding completions for " prefix)
  (let [completions (lang/get-completions ns prefix src pos)]
    (t/send transport (response-for msg :status :done :completions completions)))) 
   
 (defmethod handle-msg "find-definition"
   [handler {:keys [op session interrupt-id id transport ns sym] :as msg}]
-  (debug "Finding definition for " sym)
   (let [[path line] (lang/find-definition ns sym)]
-   (debug "Path: " path)
-   (debug "Line: " line)
    (t/send transport (response-for msg :status :done :path path :line line))))
 
 (defmethod handle-msg "doc"
  [handler {:keys [op session interrupt-id id transport ns var] :as msg}]
- (debug "Finding docstring for " var)
- (debug "Session: " session)
  (try
   (let [doc-string (lang/get-doc ns var)]
     (if doc-string
@@ -134,44 +114,34 @@
 
 (defmethod handle-msg "run-all-tests"
  [handler {:keys [op session interrupt-id transport] :as msg}]
- (debug "Running all tests...")
  (lang/run-all-tests))
 
 (defmethod handle-msg "run-tests-in-namespace"
  [handler {:keys [op session interrupt-id transport ns] :as msg}]
- (debug "Running tests in namespace " ns)
  (lang/run-tests-in-namespace ns))
 
 (defmethod handle-msg "run-test"
  [handler {:keys [op session interrup-id transport ns test-name] :as msg}]
- (debug "Running test " test-name "...")
  (lang/run-test ns test-name))
 
 (defmethod handle-msg "reval"
   [handler {:keys [op session interrupt-id id transport frame-num form] :as msg}]
-  (println "Remote evaluation...")
-  (println "FORM: " form)
   (let [val (jdi/my-reval frame-num form)
         f (read-string form)]
     (t/send transport (response-for msg :status :done :value val))))
 
 (defmethod handle-msg "refresh"
  [handler {:keys [op session interrupt-id id transport] :as msg}]
- (debug "Refreshing/reloading code...")
- (lang/refresh)
- (debug "Refreshed.")
- (t/send transport (response-for msg :status :done :msg "OK"))
- (debug "Refresh complete."))
+ (let [resp (with-out-str (lang/refresh))]
+   (t/send transport (response-for msg :status :done :msg resp))))
 
 (defmethod handle-msg "attach"
  [handler {:keys [op session interrupt-id id transport port] :as msg}]
- (println "Attaching debugger...")
  (jdi/setup-debugger port)
  (t/send transport (response-for msg :status :done)))
  
 (defmethod handle-msg :default 
   [handler msg]
-  (debug "USING DEFAULT HANDLER")
   (handler msg))
   
 (defn debug-middleware

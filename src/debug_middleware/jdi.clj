@@ -51,7 +51,7 @@
               line (.lineNumber loc "Clojure")
               src-path (try (.sourcePath loc "Clojure")
                             (catch Exception e ""))
-              _ (println "SRC-PATH: " src-path)
+              ; _ (println "SRC-PATH: " src-path)
               ;; TODO I think this needs to be run in the debugged REPL
               ; resource (.getResource (clojure.lang.RT/baseLoader) src-path)
               ; _ (println "RESOURCE: " resource)
@@ -87,7 +87,7 @@
        _ (when-not thd (println "THREAD IS NULL"))
         f (read-string form)
         val (safe-reval thd frame-num f true read-string)]
-    (println "VAL: " val)
+    ; (println "VAL: " val)
     val))
    
 ; (defn set-value
@@ -105,7 +105,7 @@
     (some (fn [ref-type]
             (when (ref-type-has-src-path? ref-type src-path)
               (do
-                (println "Ref type has src path.....")
+                ; (println "Ref type has src path.....")
                 (ref-type-matching-location ref-type line))))
           ref-types)))
           
@@ -260,7 +260,7 @@
  [port]
  (attach port 1000)
  (when  (vm)
-   (println "Attached to process ")
+  ;  (println "Attached to process ")
    (set-handler breakpoint-handler handle-breakpoint-event)
    (set-handler exception-handler handle-exception-event)
    (set-handler step-handler handle-step-event)))
