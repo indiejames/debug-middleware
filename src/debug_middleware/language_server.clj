@@ -5,6 +5,7 @@
            [clojure.java.io :as io]
            [compliment.core])
  (:import java.io.PushbackReader
+          java.io.ByteArrayOutputStream
           java.io.StringReader
           java.io.FileOutputStream
           java.io.OutputStreamWriter))
@@ -161,7 +162,12 @@
 (defn run-all-tests
  "Runs all tests in the project."
  []
- (def all-tests-future (future (time (clojure.test/run-all-tests)))))
+ (println "RUNNING TESTS")
+ (let [out-stream (ByteArrayOutputStream.)
+       my-out (io/writer out-stream)]
+    (binding [clojure.test/*test-out* my-out]
+      (future (time (clojure.test/run-all-tests))))
+    (.toString out-stream)))
 
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."
