@@ -162,12 +162,16 @@
 (defn run-all-tests
  "Runs all tests in the project."
  []
- (println "RUNNING TESTS")
  (let [out-stream (ByteArrayOutputStream.)
-       my-out (io/writer out-stream)]
-    (binding [clojure.test/*test-out* my-out]
-      (future (time (clojure.test/run-all-tests))))
-    (.toString out-stream)))
+       my-out (io/writer out-stream)
+       test-out-stream (ByteArrayOutputStream.)
+       my-test-out (io/writer test-out-stream)]
+    (binding [clojure.test/*test-out* my-test-out
+              *out* my-out]
+      (println "TEST")          
+      (time (clojure.test/run-all-tests)))
+    {:out (.toString out-stream)
+     :test-out (.toString test-out-stream)}))
 
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."

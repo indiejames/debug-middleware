@@ -114,7 +114,8 @@
 
 (defmethod handle-msg "run-all-tests"
  [handler {:keys [op session interrupt-id transport] :as msg}]
- (lang/run-all-tests))
+ (let [{:keys [out test-out]} (lang/run-all-tests)]
+   (t/send transport (response-for msg :status :done :out out :test-out test-out))))
 
 (defmethod handle-msg "run-tests-in-namespace"
  [handler {:keys [op session interrupt-id transport ns] :as msg}]
@@ -215,7 +216,8 @@
              "run-all-tests"
                 {:doc "Run all the tests in the project."
                  :requires {}
-                 :returns {"result" "A map containing :status :done or :error with a list of errors."}}
+                 :returns {"result" 
+                           "A map containing :status :done or :error with a list of errors, :out containing all printed output, and :test-out, containing output from tests."}}
              "run-test"
                 {:doc "Run a single test."
                  :requires {"ns" "The namespace containing the test"
