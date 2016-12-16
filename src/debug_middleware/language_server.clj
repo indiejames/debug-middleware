@@ -151,8 +151,8 @@
                    (println (str "You can use your own refresh function, just define reset function in user namespace\n"
                                  "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
      (println "Got result.")
-    ;  (when (isa? (type result) Exception)
-    ;    (println (.getMessage result)))
+     (when (isa? (type result) Exception)
+       (println (.getMessage result)))
      result)
    (catch Exception e
     (println "Error resolving...")

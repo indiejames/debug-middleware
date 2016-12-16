@@ -133,8 +133,12 @@
 
 (defmethod handle-msg "refresh"
  [handler {:keys [op session interrupt-id id transport] :as msg}]
- (let [resp (with-out-str (lang/refresh))]
-   (t/send transport (response-for msg :status :done :msg resp))))
+ ;; TODO figure out how to print response in debug console so we can
+ ;; print it there instead of in the REPL terminal window.
+ (lang/refresh)
+ (t/send transport (response-for msg :status :done)))
+;  (let [resp (with-out-str (lang/refresh))]
+;    (t/send transport (response-for msg :status :done :msg resp))))
 
 (defmethod handle-msg "attach"
  [handler {:keys [op session interrupt-id id transport port] :as msg}]
