@@ -129,6 +129,11 @@
         f (read-string form)]
     (t/send transport (response-for msg :status :done :value val))))
 
+(defmethod handle-msg "load-file"
+  [handler {:keys [op session interrupt-id id transport file-path] :as msg}]
+  (lang/load-source-file file-path)
+  (t/send transport (response-for msg :status :done)))
+
 (defmethod handle-msg "refresh"
  [handler {:keys [op session interrupt-id id transport] :as msg}]
  ;; TODO figure out how to print response in debug console so we can

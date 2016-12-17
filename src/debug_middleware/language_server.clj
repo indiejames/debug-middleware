@@ -119,7 +119,12 @@
   (catch Exception e
     (println (.getMessage e))
     (println (.stackTrace e)))))
-      
+
+(defn load-source-file
+  "Load the clojure source file at the given path."
+  [file-path]
+  (load-file file-path)) 
+
 (defn refresh
  "Refresh namespaces that have changed and restart application" 
  []
