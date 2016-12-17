@@ -44,19 +44,12 @@
 (defn my-list-frames
  "Returns a list of frames for the thread with the given name."
  [thread-name]
- (println "LISTING FRAMES FOR THREAD " thread-name)
  (let [thrd (get-thread-with-name thread-name)]
   (map (fn [frame]
         (let [loc (.location frame)
               line (.lineNumber loc "Clojure")
               src-path (try (.sourcePath loc "Clojure")
                             (catch Exception e ""))
-              ; _ (println "SRC-PATH: " src-path)
-              ;; TODO I think this needs to be run in the debugged REPL
-              ; resource (.getResource (clojure.lang.RT/baseLoader) src-path)
-              ; _ (println "RESOURCE: " resource)
-              ; file-path (.getPath resource)
-              ; _ ("FILE-PATH: " file-path)
               src-name (try (.sourceName loc "Clojure")
                             (catch Exception e ""))]
            {:srcPath src-path
@@ -87,7 +80,6 @@
        _ (when-not thd (println "THREAD IS NULL"))
         f (read-string form)
         val (safe-reval thd frame-num f true read-string)]
-    ; (println "VAL: " val)
     val))
    
 ; (defn set-value
@@ -104,10 +96,8 @@
   (let [ref-types (.allClasses (vm))]
     (some (fn [ref-type]
             (when (ref-type-has-src-path? ref-type src-path)
-              (do
-                ; (println "Ref type has src path.....")
-                (ref-type-matching-location ref-type line))))
-          ref-types)))
+              (ref-type-matching-location ref-type line))))
+    ref-types))
           
 (defn my-set-breakpoint
  "Set a breakpoint"
@@ -171,7 +161,6 @@
 
 (defn- handle-exception-event
   [evt]
-  (println "EXCEPTION EVENT")
   (let [tr (.thread evt)
         loc (.catchLocation evt)
         src (.sourceName loc)
@@ -260,7 +249,6 @@
  [port]
  (attach port 1000)
  (when  (vm)
-  ;  (println "Attached to process ")
    (set-handler breakpoint-handler handle-breakpoint-event)
    (set-handler exception-handler handle-exception-event)
    (set-handler step-handler handle-step-event)))

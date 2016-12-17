@@ -17,11 +17,9 @@
 
 (defmethod handle-msg "list-vars"
  [handler {:keys [op session id transport thread-name frame-index] :as msg}]
-;  (println "LISTING VARS")
  (let [thread (jdi/get-thread-with-name thread-name)
        vars (locals (ct) frame-index)
        vars (pr-str vars)]
-  ; (println "VARS: " vars)
   (t/send transport (response-for msg :status :done :vars vars))))
    
 (defmethod handle-msg "list-frames"

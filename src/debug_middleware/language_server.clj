@@ -75,10 +75,8 @@
             decompressed-file-path (str decompressed-path "/" within-file-path)
             decompressed-path-dir (clojure.java.io/file decompressed-path)]
         (when-not (.exists decompressed-path-dir)
-          ; (println "decompressing" jar-path "to" decompressed-path)
           (.mkdirs decompressed-path-dir)
           (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
-        ; (println "DECOMPRESSED FILE PATH: " decompressed-file-path)
         decompressed-file-path))
     file-path))
   
@@ -150,7 +148,6 @@
                    :else
                    (println (str "You can use your own refresh function, just define reset function in user namespace\n"
                                  "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
-     (println "Got result.")
      (when (isa? (type result) Exception)
        (println (.getMessage result)))
      result)
@@ -162,16 +159,7 @@
 (defn run-all-tests
  "Runs all tests in the project."
  []
- (let [out-stream (ByteArrayOutputStream.)
-       my-out (io/writer out-stream)
-       test-out-stream (ByteArrayOutputStream.)
-       my-test-out (io/writer test-out-stream)]
-    (binding [clojure.test/*test-out* my-test-out
-              *out* my-out]
-      (println "TEST")          
-      (time (clojure.test/run-all-tests)))
-    {:out (.toString out-stream)
-     :test-out (.toString test-out-stream)}))
+ (time (clojure.test/run-all-tests)))
 
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."
