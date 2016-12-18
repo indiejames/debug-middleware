@@ -123,7 +123,8 @@
 (defn load-source-file
   "Load the clojure source file at the given path."
   [file-path]
-  (load-file file-path)) 
+  (println "Loading file path " file-path)
+  (load-file file-path))
 
 (defn refresh
  "Refresh namespaces that have changed and restart application" 

@@ -129,10 +129,18 @@
         f (read-string form)]
     (t/send transport (response-for msg :status :done :value val))))
 
-(defmethod handle-msg "load-file"
-  [handler {:keys [op session interrupt-id id transport file-path] :as msg}]
-  (lang/load-source-file file-path)
+(defmethod handle-msg "load-src-file"
+  [handler {:keys [op session interrupt-id id transport path] :as msg}]
+  (println "LOADING FILE")
+  (lang/load-source-file path)
   (t/send transport (response-for msg :status :done)))
+
+; (defmethod handle-msg "load-file"
+;  [handler {:keys [op session interrupt-id id transport] :as msg}]
+;  ;; TODO figure out how to print response in debug console so we can
+;  ;; print it there instead of in the REPL terminal window.
+;  (lang/refresh)
+;  (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "refresh"
  [handler {:keys [op session interrupt-id id transport] :as msg}]
@@ -216,6 +224,10 @@
                  :requires {"path" "The path to the source file"
                             "line" "The line at which to set the breakpoint"}
                  :returns {"result" "The result message with :status :done"}}
+             "load-src-file"
+                {:doc "Load the clojure source file at the given path."
+                 :requires {"path" "The path to the source file."}
+                 :returns {"result" "The result meassage with :status :done"}}
              "refresh"
                 {:doc "Refresh code that has changed."
                  :requires {}
