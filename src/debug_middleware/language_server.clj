@@ -35,8 +35,7 @@
   (let [[_ sym sig desc] (re-matches #"(?s).*?\n(.*?)\n(.*?)\n(.*)" doc-string)
         ; sym (str "[" sym "]()")
         sym (str "**" sym "**")
-        sig (str "```\n" sig "\n```")
-        desc (str "```\n" desc "\n```")]
+        sig (str "```clojure\n" sig "\n```")]
     [sym sig desc])
   doc-string))
 
