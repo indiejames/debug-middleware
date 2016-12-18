@@ -151,6 +151,11 @@
 ;  (let [resp (with-out-str (lang/refresh))]
 ;    (t/send transport (response-for msg :status :done :msg resp))))
 
+(defmethod handle-msg "super-refresh"
+ [handler {:keys [op session interrupt-id id transport] :as msg}]
+ (lang/super-refresh)
+ (t/send transport (response-for msg :status :done)))
+
 (defmethod handle-msg "attach"
  [handler {:keys [op session interrupt-id id transport port] :as msg}]
  (jdi/setup-debugger port)
@@ -230,6 +235,10 @@
                  :returns {"result" "The result meassage with :status :done"}}
              "refresh"
                 {:doc "Refresh code that has changed."
+                 :requires {}
+                 :returns {"result" "A map containing :msg :ok or :error msg with :status :done"}}
+             "super-refresh"
+                {:doc "Reload all code."
                  :requires {}
                  :returns {"result" "A map containing :msg :ok or :error msg with :status :done"}}
              "run-all-tests"

@@ -161,7 +161,15 @@
     (println "Error resolving...")
     (println (.getMessage e))
     (.printStackTrace e)))))
-    
+
+(defn super-refresh
+  "Force reload all namespaces whether they have changed or not."
+  []
+  (do
+    (when (find-ns 'clojure.tools.namespace.repl)
+      (eval '(clojure.tools.namespace.repl/clear)))
+    (refresh)))
+
 (defn run-all-tests
  "Runs all tests in the project."
  []
