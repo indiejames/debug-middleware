@@ -156,11 +156,21 @@
  (lang/super-refresh)
  (t/send transport (response-for msg :status :done)))
 
+(defmethod handle-msg "pid"
+ [handler {:keys [op session interrupt-id id transport pid] :as msg}]
+ (let [pid (lang/pid)]
+   (t/send transport (response-for msg :status :done :pid pid))))
+
 (defmethod handle-msg "attach"
  [handler {:keys [op session interrupt-id id transport port] :as msg}]
  (jdi/setup-debugger port)
  (t/send transport (response-for msg :status :done)))
- 
+
+(defmethod handle-msg "exit"
+  [handler {:keys [op session interrupt-id id transport]:as msg}]
+ (jdi/exit)
+ (t/send transport (response-for msg :status :exited)))
+
 (defmethod handle-msg :default 
   [handler msg]
   (handler msg))
@@ -251,6 +261,10 @@
                  :requires {"ns" "The namespace containing the test"
                             "test-name" "The name of the test to be executed."}
                  :returns {"result" "A map containing :status :done or :error with a list of errors."}}
+             "pid"
+                {:doc "Returns the process id for the JVM process."
+                 :requires {}
+                 :returns {"result" "A map conttaining :status :done and :pid <process id> or :error with a list of eerrors."}}
              "doc"
                 {:doc "Get the docstring for the given symbol."
                  :requires {"var" "The var for which to return the docstring"}

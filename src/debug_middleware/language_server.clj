@@ -8,7 +8,8 @@
           java.io.ByteArrayOutputStream
           java.io.StringReader
           java.io.FileOutputStream
-          java.io.OutputStreamWriter))
+          java.io.OutputStreamWriter
+          java.lang.management.ManagementFactory))
 
 (defn make-proxy
  "Returns a proxy for a PushbackReader that returns a count of the number of characters
@@ -201,3 +202,12 @@
         (take 100)
         (mapv #(assoc % :docs (compliment.core/documentation
                                 (:candidate %) ns-symbol))))))
+
+(defn pid 
+  "Get JVM process PID"
+  []
+  (-> (ManagementFactory/getRuntimeMXBean)
+      .getName
+      (str/split #"@")
+      first
+      Integer/parseInt))

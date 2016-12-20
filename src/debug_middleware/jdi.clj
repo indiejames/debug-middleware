@@ -243,7 +243,12 @@
                (> n 0))
           (Thread/sleep 1000)
           (recur (dec n)))))
-           
+
+(defn exit
+  "Tell the attached JVM to exit using JDI." 
+  []
+ (.exit (vm) 0))
+
 (defn setup-debugger
  "Intialize the debugger by attaching to another process to be debugged on the given port."
  [port]
