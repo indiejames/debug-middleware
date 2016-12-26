@@ -235,9 +235,9 @@
 
 (defn- attach
   "Repeatedly try to attach using JDI."
-  [port num-tries]
+  [host port num-tries]
   (loop [n num-tries]
-    (when (and (nil? (try (cdt-attach port)
+    (when (and (nil? (try (cdt-attach host port)
                           true
                           (catch Exception e nil)))
                (> n 0))
@@ -251,8 +251,8 @@
 
 (defn setup-debugger
  "Intialize the debugger by attaching to another process to be debugged on the given port."
- [port]
- (attach port 1000)
+ [host port]
+ (attach host port 1000)
  (when  (vm)
    (set-handler breakpoint-handler handle-breakpoint-event)
    (set-handler exception-handler handle-exception-event)

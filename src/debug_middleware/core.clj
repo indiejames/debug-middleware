@@ -162,8 +162,8 @@
    (t/send transport (response-for msg :status :done :pid pid))))
 
 (defmethod handle-msg "attach"
- [handler {:keys [op session interrupt-id id transport port] :as msg}]
- (jdi/setup-debugger port)
+ [handler {:keys [op session interrupt-id id transport host port] :as msg}]
+ (jdi/setup-debugger host port)
  (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "exit"
