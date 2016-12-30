@@ -8,6 +8,7 @@
            [debug-middleware.language-server :as lang]
            [cdt.ui :refer :all])
  (:import com.sun.jdi.Bootstrap
+          com.sun.jdi.AbsentInformationException
           com.sun.jdi.request.BreakpointRequest))
  
 ;; Returns a handler for operation.
@@ -18,7 +19,10 @@
 (defmethod handle-msg "list-vars"
  [handler {:keys [op session id transport thread-name frame-index] :as msg}]
  (let [thread (jdi/get-thread-with-name thread-name)
-       vars (locals (ct) frame-index)
+       vars (try 
+             (locals (ct) frame-index)
+             (catch AbsentInformationException e
+              [[][]]))
        vars (pr-str vars)]
   (t/send transport (response-for msg :status :done :vars vars))))
    
