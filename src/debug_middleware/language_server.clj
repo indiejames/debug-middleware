@@ -77,8 +77,8 @@
         (when-not (.exists decompressed-path-dir)
           (.mkdirs decompressed-path-dir)
           (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
-        decompressed-file-path))
-    file-path))
+        decompressed-file-path)
+      file-path)))
   
 
 (defn find-definition
@@ -95,6 +95,7 @@
     (require 'clojure.java.shell)
     (require 'clojure.java.io)
     (let [sym (symbol symbol-str)
+          _ (println "SYM "  sym)
           the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
                               clojure.repl/dir-fn
                               first
@@ -102,8 +103,16 @@
                               (str (name sym) "/")
                               symbol)
                       sym)
-          {:keys [file line]} (meta (eval `(var ~the-var)))
+          _ (println "THE-VAR" the-var)
+          ev (eval `(var ~the-var))
+          _ (println "EVAL: " ev)
+          mta (meta ev)
+          _ (println "META: " mta)
+          {:keys [file line]} mta
+          _ (println "FILE: " file)
+          _ (println "LINE: " line)
           file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))]
+      (println "FILE-PATH: " file-path)
       (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)" file-path)]
         (let [decompressed-path (str (System/getProperty "user.home")
                                     "/.lein/tmp-vscode-jars/"
