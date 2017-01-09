@@ -7,9 +7,11 @@
  (:import java.io.PushbackReader
           java.io.ByteArrayOutputStream
           java.io.StringReader
+          java.io.File
           java.io.FileOutputStream
           java.io.OutputStreamWriter
-          java.lang.management.ManagementFactory))
+          java.lang.management.ManagementFactory
+          java.util.jar.JarFile))
 
 (defn make-proxy
  "Returns a proxy for a PushbackReader that returns a count of the number of characters
@@ -79,9 +81,64 @@
           (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
         decompressed-file-path)
       file-path)))
-  
 
-(defn find-definition
+(defn find-definition 
+  "Find the location where the given symbol is defined."
+  [ns-str symbol-str]
+  (binding [*ns* *ns* *e *e]
+    (in-ns (symbol ns-str))
+    (require 'clojure.repl)
+    (require 'clojure.java.shell)
+    (require 'clojure.java.io)
+    (let [var-sym (symbol symbol-str)
+          the-var (or (some->> (or (get (ns-aliases *ns*) var-sym) (find-ns var-sym))
+                                clojure.repl/dir-fn
+                                first
+                                name
+                                (str (name var-sym) "/")
+                                symbol)
+                      var-sym)
+          {:keys [file line]} (meta (eval `(var ~the-var)))
+          file-path (loop [paths (remove empty? (clojure.string/split (.getPath (.toURI (java.io.File. file))) #"/"))]
+                      (when-not (empty? paths)
+                        (let [path (clojure.string/join "/" paths)
+                              res (.getResource (clojure.lang.RT/baseLoader) path)]
+                          (if-not (nil? res)
+                                  (let [uri (.normalize (.toURI (.getResource (clojure.lang.RT/baseLoader) path)))]
+                                    (if (.isOpaque uri)
+                                      (let [url (.toURL uri)
+                                            conn (.openConnection url)
+                                            file (java.io.File. (.. conn getJarFileURL toURI))]
+                                        (str (.getAbsolutePath file) "!" (second (clojure.string/split (.getPath url) #"!"))))
+                                      (.getAbsolutePath (java.io.File. uri))))
+                                  (recur (rest paths))))))]
+      (if-let [[_
+                jar-path
+                partial-jar-path
+                within-file-path] (re-find #"(.+\.m2.repository.(.+\.jar))!/(.+)" file-path)]
+        (let [decompressed-path (.getAbsolutePath
+                                  (File. (.getAbsolutePath (File.
+                                                            (System/getProperty "user.home")
+                                                            "/.lein/tmp-atom-jars/"))
+                                        partial-jar-path))
+              decompressed-file-path (.getAbsolutePath (File. decompressed-path within-file-path))
+              decompressed-path-dir (clojure.java.io/file decompressed-path)]
+          (when-not (.exists decompressed-path-dir)
+            (println "decompressing" jar-path "to" decompressed-path)
+            (.mkdirs decompressed-path-dir)
+            (let [jar-file (JarFile. jar-path)]
+              (run! (fn [jar-entry]
+                      (let [file (File. decompressed-path (.getName jar-entry))]
+                        (if (.isDirectory jar-entry)
+                          (.mkdir file)
+                          (with-open [is (.getInputStream jar-file jar-entry)]
+                                      (clojure.java.io/copy is file)))))
+                    (seq (.toArray (.stream jar-file))))))
+          {:file decompressed-file-path :line line})
+        {:file file-path :line line}))))
+
+
+(defn find-definitions
  "Find the location where the given symbol is defined."
  [ns-str symbol-str]
  (try
@@ -108,23 +165,27 @@
           _ (println "EVAL: " ev)
           mta (meta ev)
           _ (println "META: " mta)
-          {:keys [file line]} mta
+          {:keys [file line protocol]} mta
           _ (println "FILE: " file)
           _ (println "LINE: " line)
-          file-path (.getPath (.getResource (clojure.lang.RT/baseLoader) file))]
+          file-path (when file (.getPath (.getResource (clojure.lang.RT/baseLoader) file)))]
       (println "FILE-PATH: " file-path)
-      (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)" file-path)]
-        (let [decompressed-path (str (System/getProperty "user.home")
-                                    "/.lein/tmp-vscode-jars/"
-                                    partial-jar-path)
-              decompressed-file-path (str decompressed-path "/" within-file-path)
-              decompressed-path-dir (clojure.java.io/file decompressed-path)]
-          (when-not (.exists decompressed-path-dir)
-              (println "decompressing" jar-path "to" decompressed-path)
-              (.mkdirs decompressed-path-dir)
-              (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
-          [decompressed-file-path line])
-        [file-path line])))
+      (if protocol
+        {:error "Definition lookup for protocol methods is not supported."}
+        (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)" file-path)]
+          (let [decompressed-path (str (System/getProperty "user.home")
+                                      "/.lein/tmp-vscode-jars/"
+                                      partial-jar-path)
+                decompressed-file-path (str decompressed-path "/" within-file-path)
+                decompressed-path-dir (clojure.java.io/file decompressed-path)]
+            (when-not (.exists decompressed-path-dir)
+                (println "decompressing" jar-path "to" decompressed-path)
+                (.mkdirs decompressed-path-dir)
+                (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
+            [decompressed-file-path line])
+          {:file file-path :line line}))))
+        
+      
   (catch Exception e
     (println (.getMessage e))
     (println (.stackTrace e)))))

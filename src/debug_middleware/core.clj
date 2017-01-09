@@ -102,9 +102,10 @@
 (defmethod handle-msg "find-definition"
   [handler {:keys [op session interrupt-id id transport ns sym] :as msg}]
   (println "FINDING PATH FOR " sym " IN NS " ns)
-  (let [[path line] (lang/find-definition ns sym)]
-   (println "PATH: " path)
-   (t/send transport (response-for msg :status :done :path path :line line))))
+  (let [{:keys [path line error]} (lang/find-definition ns sym)]
+    (if error
+      (t/send transport (response-for msg :status :error :message error))
+      (t/send transport (response-for msg :status :done :path path :line line)))))
 
 (defmethod handle-msg "doc"
  [handler {:keys [op session interrupt-id id transport ns var] :as msg}]
