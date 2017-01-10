@@ -82,113 +82,69 @@
         decompressed-file-path)
       file-path)))
 
-(defn find-definition 
+(defn find-definition
   "Find the location where the given symbol is defined."
   [ns-str symbol-str]
-  (binding [*ns* *ns* *e *e]
-    (in-ns (symbol ns-str))
-    (require 'clojure.repl)
-    (require 'clojure.java.shell)
-    (require 'clojure.java.io)
-    (let [var-sym (symbol symbol-str)
-          the-var (or (some->> (or (get (ns-aliases *ns*) var-sym) (find-ns var-sym))
-                                clojure.repl/dir-fn
-                                first
-                                name
-                                (str (name var-sym) "/")
-                                symbol)
-                      var-sym)
-          {:keys [file line]} (meta (eval `(var ~the-var)))
-          file-path (loop [paths (remove empty? (clojure.string/split (.getPath (.toURI (java.io.File. file))) #"/"))]
-                      (when-not (empty? paths)
-                        (let [path (clojure.string/join "/" paths)
-                              res (.getResource (clojure.lang.RT/baseLoader) path)]
-                          (if-not (nil? res)
-                                  (let [uri (.normalize (.toURI (.getResource (clojure.lang.RT/baseLoader) path)))]
-                                    (if (.isOpaque uri)
-                                      (let [url (.toURL uri)
-                                            conn (.openConnection url)
-                                            file (java.io.File. (.. conn getJarFileURL toURI))]
-                                        (str (.getAbsolutePath file) "!" (second (clojure.string/split (.getPath url) #"!"))))
-                                      (.getAbsolutePath (java.io.File. uri))))
-                                  (recur (rest paths))))))]
-      (if-let [[_
-                jar-path
-                partial-jar-path
-                within-file-path] (re-find #"(.+\.m2.repository.(.+\.jar))!/(.+)" file-path)]
-        (let [decompressed-path (.getAbsolutePath
-                                  (File. (.getAbsolutePath (File.
-                                                            (System/getProperty "user.home")
-                                                            "/.lein/tmp-atom-jars/"))
-                                        partial-jar-path))
-              decompressed-file-path (.getAbsolutePath (File. decompressed-path within-file-path))
-              decompressed-path-dir (clojure.java.io/file decompressed-path)]
-          (when-not (.exists decompressed-path-dir)
-            (println "decompressing" jar-path "to" decompressed-path)
-            (.mkdirs decompressed-path-dir)
-            (let [jar-file (JarFile. jar-path)]
-              (run! (fn [jar-entry]
-                      (let [file (File. decompressed-path (.getName jar-entry))]
-                        (if (.isDirectory jar-entry)
-                          (.mkdir file)
-                          (with-open [is (.getInputStream jar-file jar-entry)]
-                                      (clojure.java.io/copy is file)))))
-                    (seq (.toArray (.stream jar-file))))))
-          {:file decompressed-file-path :line line})
-        {:file file-path :line line}))))
-
-
-(defn find-definitions
- "Find the location where the given symbol is defined."
- [ns-str symbol-str]
- (try
-  ;; Binding a thread-local copy of *ns* so changes
-  ;; are isolated to this thread.
-  ;; See https://groups.google.com/forum/#!msg/clojure/MGOwtVSXLS4/Jiet-nSAKzwJ)
-  (binding [*ns* *ns* *e *e]
-    (in-ns (symbol ns-str))
-  ;;(clojure.core/require [clojure.core :refer :all])
-    (require 'clojure.repl)
-    (require 'clojure.java.shell)
-    (require 'clojure.java.io)
-    (let [sym (symbol symbol-str)
-          _ (println "SYM "  sym)
-          the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
-                              clojure.repl/dir-fn
-                              first
-                              name
-                              (str (name sym) "/")
-                              symbol)
-                      sym)
-          _ (println "THE-VAR" the-var)
-          ev (eval `(var ~the-var))
-          _ (println "EVAL: " ev)
-          mta (meta ev)
-          _ (println "META: " mta)
-          {:keys [file line protocol]} mta
-          _ (println "FILE: " file)
-          _ (println "LINE: " line)
-          file-path (when file (.getPath (.getResource (clojure.lang.RT/baseLoader) file)))]
-      (println "FILE-PATH: " file-path)
-      (if protocol
-        {:error "Definition lookup for protocol methods is not supported."}
-        (if-let [[_ jar-path partial-jar-path within-file-path] (re-find #"file:(.+/\.m2/repository/(.+\.jar))!/(.+)" file-path)]
-          (let [decompressed-path (str (System/getProperty "user.home")
-                                      "/.lein/tmp-vscode-jars/"
-                                      partial-jar-path)
-                decompressed-file-path (str decompressed-path "/" within-file-path)
-                decompressed-path-dir (clojure.java.io/file decompressed-path)]
-            (when-not (.exists decompressed-path-dir)
+  (try
+    (binding [*ns* *ns* *e *e]
+      (in-ns (symbol ns-str))
+      (require 'clojure.repl)
+      (require 'clojure.java.shell)
+      (require 'clojure.java.io)
+      (let [var-sym (symbol symbol-str)
+            the-var (or (some->> (or (get (ns-aliases *ns*) var-sym) (find-ns var-sym))
+                                 clojure.repl/dir-fn
+                                 first
+                                 name
+                                 (str (name var-sym) "/")
+                                 symbol)
+                        var-sym)
+            ev (eval `(var ~the-var))
+            mta (meta ev)
+            {:keys [file line protocol]} mta
+            file-path (when file (loop [paths (remove empty? (clojure.string/split (.getPath (.toURI (java.io.File. file))) #"/"))]
+                                  (when-not (empty? paths)
+                                    (let [path (clojure.string/join "/" paths)
+                                          res (.getResource (clojure.lang.RT/baseLoader) path)]
+                                      (if-not (nil? res)
+                                              (let [uri (.normalize (.toURI (.getResource (clojure.lang.RT/baseLoader) path)))]
+                                                (if (.isOpaque uri)
+                                                  (let [url (.toURL uri)
+                                                        conn (.openConnection url)
+                                                        file (java.io.File. (.. conn getJarFileURL toURI))]
+                                                    (str (.getAbsolutePath file) "!" (second (clojure.string/split (.getPath url) #"!"))))
+                                                  (.getAbsolutePath (java.io.File. uri))))
+                                              (recur (rest paths)))))))]
+        (if protocol
+          {:error "Definition lookup for protocol methods is not supported."}
+          (if-let [[_
+                    jar-path
+                    partial-jar-path
+                    within-file-path] (re-find #"(.+\.m2.repository.(.+\.jar))!/(.+)" file-path)]
+            (let [decompressed-path (.getAbsolutePath
+                                      (File. (.getAbsolutePath (File.
+                                                                (System/getProperty "user.home")
+                                                                "/.lein/tmp-atom-jars/"))
+                                            partial-jar-path))
+                  decompressed-file-path (.getAbsolutePath (File. decompressed-path within-file-path))
+                  decompressed-path-dir (clojure.java.io/file decompressed-path)]
+              (when-not (.exists decompressed-path-dir)
                 (println "decompressing" jar-path "to" decompressed-path)
                 (.mkdirs decompressed-path-dir)
-                (clojure.java.shell/sh "unzip" jar-path "-d" decompressed-path))
-            [decompressed-file-path line])
-          {:file file-path :line line}))))
-        
-      
-  (catch Exception e
-    (println (.getMessage e))
-    (println (.stackTrace e)))))
+                (let [jar-file (JarFile. jar-path)]
+                  (run! (fn [jar-entry]
+                          (let [file (File. decompressed-path (.getName jar-entry))]
+                            (if (.isDirectory jar-entry)
+                              (.mkdir file)
+                              (with-open [is (.getInputStream jar-file jar-entry)]
+                                (clojure.java.io/copy is file)))))
+                        (seq (.toArray (.stream jar-file))))))
+              {:path decompressed-file-path :line line})
+            {:path file-path :line line}))))
+    (catch Exception e
+      (println (.getMessage e))
+      (println (.stackTrace e)))))
+
 
 (defn load-source-file
   "Load the clojure source file at the given path."
@@ -204,7 +160,6 @@
   (try
     (println "Requiring 'user")
     (require 'user)
-    (println "'user required.")
     (catch java.io.FileNotFoundException e
       (println (str "No user namespace defined. Defaulting to clojure.tools.namespace.repl/refresh.\n"))))
   (try
