@@ -101,7 +101,6 @@
   
 (defmethod handle-msg "find-definition"
   [handler {:keys [op session interrupt-id id transport ns sym] :as msg}]
-  (println "FINDING PATH FOR " sym " IN NS " ns)
   (let [{:keys [path line error]} (lang/find-definition ns sym)]
     (if error
       (t/send transport (response-for msg :status :error :message error))
@@ -138,7 +137,6 @@
 
 (defmethod handle-msg "load-src-file"
   [handler {:keys [op session interrupt-id id transport path] :as msg}]
-  (println "LOADING FILE")
   (lang/load-source-file path)
   (t/send transport (response-for msg :status :done)))
 
