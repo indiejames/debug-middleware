@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :plugins [[lein-modules "0.3.11"]]
   :dependencies [[compliment "0.2.7"]
-                 [org.clojars.jnorton/cdt "1.2.6.3"]
+                 [org.clojars.jnorton/cdt "1.2.6.4-SNAPSHOT"]
                  [cheshire "5.6.3"]
                  [org.clojure/tools.namespace "0.2.11"]
                  [org.clojure/tools.logging "0.3.1"]
