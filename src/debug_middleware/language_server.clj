@@ -142,9 +142,9 @@
               {:path decompressed-file-path :line line})
             {:path file-path :line line}))))
     (catch Exception e
-      (println (.getMessage e))
-      (println (.stackTrace e)))))
-
+      (binding [*out* *err*]
+        (println (.getMessage e)))
+      {:error (str "Definition not available for symbol " symbol-str)})))
 
 (defn load-source-file
   "Load the clojure source file at the given path."
