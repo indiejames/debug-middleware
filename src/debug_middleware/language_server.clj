@@ -60,9 +60,12 @@
               rval (format-doc rval)
               rval (if (= rval "") "NO VALUE" rval)]
           rval)
-        (catch Throwable e
-          (println (.getMessage e))
-          (println (.stackTrace e)))))))     
+        (catch Throwable e)))))
+          ;; Output here shows up in the REPL and is confusing in most cases,
+          ;; So I have eliminated it here. Leavning this in place in case 
+          ;; I cange my mind.
+          ;; (binding [*out* *err*]
+          ;;   (println (.getMessage e))))))))     
 
 (defn get-src-path
   "Returns the readable source path for the given internal source path. Will
