@@ -160,6 +160,7 @@
  []
  (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
  (binding [*ns* *ns* *e *e]
+  (println "Refreshing code")
   (try
     (println "Requiring 'user")
     (require 'user)
@@ -184,19 +185,19 @@
                                  "See this https://github.com/clojure/tools.namespace#reloading-code-motivation for why you should use it")))]
      (when (isa? (type result) Exception)
        (println (.getMessage result)))
+     (println "Refresh completed")
      result)
    (catch Exception e
-    (println "Error resolving...")
-    (println (.getMessage e))
-    (.printStackTrace e)))))
+    (binding [*out* *err*]
+      (println (.getMessage e))
+      (.printStackTrace e))))))
 
 (defn super-refresh
   "Force reload all namespaces whether they have changed or not."
   []
-  (do
-    (when (find-ns 'clojure.tools.namespace.repl)
-      (eval '(clojure.tools.namespace.repl/clear)))
-    (refresh)))
+  (when (find-ns 'clojure.tools.namespace.repl)
+    (eval '(clojure.tools.namespace.repl/clear)))
+  (refresh))
 
 (defn run-all-tests
  "Runs all tests in the project."

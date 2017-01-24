@@ -164,6 +164,7 @@
 (defmethod handle-msg "pid"
  [handler {:keys [op session interrupt-id id transport pid] :as msg}]
  (let [pid (lang/pid)]
+   (println "PID: " pid)
    (t/send transport (response-for msg :status :done :pid pid))))
 
 (defmethod handle-msg "attach"
