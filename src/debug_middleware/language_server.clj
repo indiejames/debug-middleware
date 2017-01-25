@@ -21,8 +21,8 @@
   (deref [] @count-atom)
   (read [] (do (swap! count-atom inc) (proxy-super read)))
   (unread [c] (do (swap! count-atom dec) (proxy-super unread c)))))
-  
- 
+
+
 (defn find-high-level-form
  [src position]
  (let[rdr (make-proxy (java.io.StringReader. src) (atom 0))]
@@ -42,7 +42,7 @@
     [sym sig desc])
   doc-string))
 
-(defn get-doc 
+(defn get-doc
  "Find documentation for the given var"
   [ns-str var-str]
   ;; Binding a thread-local copy of *ns* so changes
@@ -51,7 +51,7 @@
   (let [name-space (find-ns (symbol ns-str))
         sym (symbol var-str)]
     (binding [*ns* name-space *e *e]
-      (try 
+      (try
         (require 'clojure.repl)
         (let [the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
                                ns-name)
@@ -62,10 +62,10 @@
           rval)
         (catch Throwable e)))))
           ;; Output here shows up in the REPL and is confusing in most cases,
-          ;; So I have eliminated it here. Leavning this in place in case 
+          ;; So I have eliminated it here. Leavning this in place in case
           ;; I cange my mind.
           ;; (binding [*out* *err*]
-          ;;   (println (.getMessage e))))))))     
+          ;;   (println (.getMessage e))))))))
 
 (defn get-src-path
   "Returns the readable source path for the given internal source path. Will
@@ -145,8 +145,8 @@
               {:path decompressed-file-path :line line})
             {:path file-path :line line}))))
     (catch Exception e
-      (binding [*out* *err*]
-        (println (.getMessage e)))
+      ;; (binding [*out* *err*])
+        ;; (println (.getMessage e)))
       {:error (str "Definition not available for symbol " symbol-str)})))
 
 (defn load-source-file
@@ -156,7 +156,7 @@
   (load-file file-path))
 
 (defn refresh
- "Refresh namespaces that have changed and restart application" 
+ "Refresh namespaces that have changed and restart application"
  []
  (alter-var-root #'*compiler-options* assoc :disable-locals-clearing true)
  (binding [*ns* *ns* *e *e]
@@ -232,7 +232,7 @@
         (mapv #(assoc % :docs (compliment.core/documentation
                                 (:candidate %) ns-symbol))))))
 
-(defn pid 
+(defn pid
   "Get JVM process PID"
   []
   (-> (ManagementFactory/getRuntimeMXBean)
