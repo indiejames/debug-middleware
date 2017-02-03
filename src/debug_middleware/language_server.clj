@@ -1,5 +1,6 @@
 (ns debug-middleware.language-server
- (:require [clojure.repl :as repl]
+ (:require [cljfmt.core :as clj-fmt]
+           [clojure.repl :as repl]
            [clojure.string :as str]
            [clojure.java.shell :as shell]
            [clojure.java.io :as io]
@@ -240,3 +241,8 @@
       (str/split #"@")
       first
       Integer/parseInt))
+
+;; reformat the string containing Clojure code
+(defn reformat-string
+  [code opts]
+  (clj-fmt/reformat-string code opts))

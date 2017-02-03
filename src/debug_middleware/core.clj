@@ -164,8 +164,12 @@
 (defmethod handle-msg "pid"
  [handler {:keys [op session interrupt-id id transport pid] :as msg}]
  (let [pid (lang/pid)]
-   (println "PID: " pid)
    (t/send transport (response-for msg :status :done :pid pid))))
+
+(defmethod handle-msg "reformat"
+  [handler {:keys [op session interrupt-id id transport code] :as msg}]
+  (let [rcode (lang/reformat-string code {})]
+    (t/send transport (response-for msg :status :done :code rcode))))
 
 (defmethod handle-msg "attach"
  [handler {:keys [op session interrupt-id id transport host port] :as msg}]
@@ -270,7 +274,11 @@
              "pid"
                 {:doc "Returns the process id for the JVM process."
                  :requires {}
-                 :returns {"result" "A map conttaining :status :done and :pid <process id> or :error with a list of eerrors."}}
+                 :returns {"result" "A map conttaining :status :done and :pid <process id> or :error with a list of errors."}}
+             "reformat"
+                {:doc "Returns a formatted version of the input code string."
+                 :requires {"code" "The code to be formatted."}
+                 :returns {"result" "A map conttaining :status :done and :code <reformatted code> or :error with a list of errors."}}
              "doc"
                 {:doc "Get the docstring for the given symbol."
                  :requires {"var" "The var for which to return the docstring"}
