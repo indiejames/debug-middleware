@@ -128,7 +128,7 @@
             (let [decompressed-path (.getAbsolutePath
                                       (File. (.getAbsolutePath (File.
                                                                 (System/getProperty "user.home")
-                                                                "/.lein/tmp-atom-jars/"))
+                                                                "/.lein/tmp-vscode-jars/"))
                                             partial-jar-path))
                   decompressed-file-path (.getAbsolutePath (File. decompressed-path within-file-path))
                   decompressed-path-dir (clojure.java.io/file decompressed-path)]
