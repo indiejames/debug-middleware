@@ -1,4 +1,4 @@
-(defproject debug-middleware "0.1.2-SNAPSHOT"
+(defproject debug-middleware "0.3.9"
   :description "nREPL middleware to support VS Code Continuum"
   :url "https://github.com/indiejames/debug-middleware"
   :license {:name "Eclipse Public License"
@@ -6,7 +6,7 @@
   :plugins [[lein-modules "0.3.11"]]
   :dependencies [[compliment "0.2.7"]
                  [cljfmt "0.5.6"]
-                 [org.clojars.jnorton/cdt "1.2.6.4-SNAPSHOT"]
+                 [org.clojars.jnorton/cdt "1.2.6.5"]
                  [cheshire "5.6.3"]
                  [org.clojure/tools.namespace "0.2.11"]
                  [org.clojure/tools.logging "0.3.1"]
