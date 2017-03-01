@@ -4,6 +4,8 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :plugins [[lein-modules "0.3.11"]]
+  :repositories [["releases" {:url "https://clojars.org/repo"
+                              :sign-releases false}]]
   :dependencies [[compliment "0.2.7"]
                  [cljfmt "0.5.6"]
                  [org.clojars.jnorton/cdt "1.2.6.5"]
