@@ -177,9 +177,14 @@
  (t/send transport (response-for msg :status :done)))
 
 (defmethod handle-msg "exit"
-  [handler {:keys [op session interrupt-id id transport]:as msg}]
+  [handler {:keys [op session interrupt-id id transport] :as msg}]
  (jdi/exit)
  (t/send transport (response-for msg :status :exited)))
+
+(defmethod handle-msg "fix-ns"
+  [handler {:keys [op session interrupt-id id transport path] :as msg}]
+  (let [source (lang/fix-ns path)]
+    (t/send transport (response-for msg :status :done :value source))))
 
 (defmethod handle-msg :default 
   [handler msg]
@@ -279,6 +284,12 @@
                 {:doc "Returns a formatted version of the input code string."
                  :requires {"code" "The code to be formatted."}
                  :returns {"result" "A map conttaining :status :done and :code <reformatted code> or :error with a list of errors."}}
+             "fix-ns"
+               {:doc "Returns the source for the given file with the ns entry fixed (missing
+                      requires fixed, etc.)"
+                :requires {}
+                :returns {"result" "A map containing :value - the reformatted source and
+                          :staus :done"}}
              "doc"
                 {:doc "Get the docstring for the given symbol."
                  :requires {"var" "The var for which to return the docstring"}

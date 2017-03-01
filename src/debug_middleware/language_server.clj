@@ -3,6 +3,7 @@
            [clojure.repl :as repl]
            [clojure.string :as str]
            [clojure.java.shell :as shell]
+           [slam.hound :refer [reconstruct]]
            [clojure.java.io :as io]
            [compliment.core])
  (:import java.io.PushbackReader
@@ -43,6 +44,11 @@
     [sym sig desc])
   doc-string))
 
+(defn fix-ns
+  "Fix requires/imports for the ns entry for the given source file."
+  [path]
+  (reconstruct path))
+  
 (defn get-doc
  "Find documentation for the given var"
   [ns-str var-str]
