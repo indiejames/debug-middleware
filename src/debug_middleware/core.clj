@@ -116,6 +116,26 @@
   (catch Throwable e
    (t/send transport (response-for msg :status :done :doc "Failed to retrieve docstring")))))
 
+(defmethod handle-msg "args"
+ [handler {:keys [op session interrupt-id id transport ns var] :as msg}]
+ (try
+  (let [args (lang/get-args ns var)]
+    (if (seq args)
+      (t/send transport (response-for msg :status :done :args args))
+      (t/send transport (response-for msg :status :done :args []))))
+  (catch Throwable e
+   (t/send transport (response-for msg :status :done :doc "Failed to retrieve args")))))
+
+(defmethod handle-msg "signatures"
+ [handler {:keys [op session interrupt-id id transport ns var] :as msg}]
+ (try
+  (let [sigs (lang/get-signatures ns var)]
+    (if (seq sigs)
+      (t/send transport (response-for msg :status :done :sigs sigs))
+      (t/send transport (response-for msg :status :done :sigs []))))
+  (catch Throwable e
+   (t/send transport (response-for msg :status :done :doc "Failed to retrieve signatures")))))
+
 (defmethod handle-msg "run-all-tests"
  [handler {:keys [op session interrupt-id transport] :as msg}]
  (let [{:keys [out test-out]} (lang/run-all-tests)]
@@ -293,7 +313,11 @@
              "doc"
                 {:doc "Get the docstring for the given symbol."
                  :requires {"var" "The var for which to return the docstring"}
-                 :returns {"result" "A map containing :msg docstring or :error msg with :status :done"}}
+                 :returns {"result" "A map containing :msg docstring or :error msg with :status :done"}}}
+            "args"
+                {:doc "Get the list of arguments for the given function"
+                 :requires {"var","The var for the function"}
+                 :returns {"result" "A map containing :args arglist or :error msg with :status :done"}}
              "get-completions"
                 {:doc "Returns a list of possible completions for the given prefix."
                  :requires {"prefix" "The characters entered by the user" 
@@ -304,6 +328,6 @@
              "find-definition"
                 {:doc "Find the location where a symbol is defined."
                  :requires {"ns" "The namespace in which the search was executed." "sym" "The symbol to find"}
-                 :returns {"result" "A map containig :status :done :path path :line line"}}}})
+                 :returns {"result" "A map containig :status :done :path path :line line"}}})
   
   

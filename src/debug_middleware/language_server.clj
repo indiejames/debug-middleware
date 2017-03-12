@@ -70,9 +70,42 @@
         (catch Throwable e)))))
           ;; Output here shows up in the REPL and is confusing in most cases,
           ;; So I have eliminated it here. Leavning this in place in case
-          ;; I cange my mind.
+          ;; I change my mind.
           ;; (binding [*out* *err*]
           ;;   (println (.getMessage e))))))))
+
+(defn get-args
+  "Find the arguments for the given function."
+  [ns-str var-str]
+  (let [name-space (find-ns (symbol ns-str))
+        sym (symbol var-str)]
+    (binding [*ns* name-space *e *e]
+      (try
+        (let [the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
+                               ns-name)
+                          sym)
+              ev (eval `(var ~the-var))
+              mta (meta ev)
+              arg-lists (:arglists mta)
+              rval (when arg-lists (first arg-lists))]
+          rval)
+        (catch Throwable e)))))
+
+(defn get-signatures
+  "Find the signatures for the given function."
+  [ns-str var-str]
+  (let [name-space (find-ns (symbol ns-str))
+        sym (symbol var-str)]
+    (binding [*ns* name-space *e *e]
+      (try
+        (let [the-var (or (some->> (or (get (ns-aliases *ns*) sym) (find-ns sym))
+                               ns-name)
+                          sym)
+              ev (eval `(var ~the-var))
+              mta (meta ev)
+              arg-lists (:arglists mta)]
+          arg-lists)
+        (catch Throwable e)))))
 
 (defn get-src-path
   "Returns the readable source path for the given internal source path. Will
