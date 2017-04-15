@@ -1,10 +1,12 @@
 (ns debug-middleware.language-server
  (:require [cljfmt.core :as clj-fmt]
+           [clojure.java.io :as io]
            [clojure.repl :as repl]
            [clojure.string :as str]
            [clojure.java.shell :as shell]
+           [debug-middleware.test]
+           [eftest.runner :refer [find-tests run-tests]]
            [slam.hound :refer [reconstruct]]
-           [clojure.java.io :as io]
            [compliment.core])
  (:import java.io.PushbackReader
           java.io.ByteArrayOutputStream
@@ -24,14 +26,13 @@
   (read [] (do (swap! count-atom inc) (proxy-super read)))
   (unread [c] (do (swap! count-atom dec) (proxy-super unread c)))))
 
-
 (defn find-high-level-form
  [src position]
- (let[rdr (make-proxy (java.io.StringReader. src) (atom 0))]
-  (loop [form (read rdr) pos @rdr]
-   (if (> pos position)
-    form
-    (recur (read rdr) @rdr)))))
+ (let [rdr (make-proxy (java.io.StringReader. src) (atom 0))]
+   (loop [form (read rdr) pos @rdr]
+    (if (> pos position)
+     form
+     (recur (read rdr) @rdr)))))
 
 (defn format-doc
  "Format a docstring using markdown."
@@ -239,10 +240,44 @@
     (eval '(clojure.tools.namespace.repl/clear)))
   (refresh))
 
+(defn- combine-test-reports
+  "Combine thre results from multiple test runs into a single report"
+  [& reports]
+  (let [reports (map #(dissoc % :type) reports)]
+    (apply merge-with + reports)))
+
+(defn- pluralize-failures
+  "Returns \"failure\" for one failure,
+  \"failures\" for zero or man failures."
+  [count]
+  (if (= count 1)
+    "failure"
+    "failures"))
+
+(defn- pluralize-errors
+  "Returns \"error\" for one error,
+  \"errors\" for zero or many errors."
+  [count]
+  (if (= count 1)
+    "error"
+    "errors"))
+
 (defn run-all-tests
  "Runs all tests in the project."
- []
- (time (clojure.test/run-all-tests)))
+ [parallel-dirs sequential-dirs]
+ (swap! debug-middleware.test/*test-dirs* (constantly parallel-dirs))
+ (let [par-report (run-tests (find-tests parallel-dirs))
+       _ (swap! debug-middleware.test/*test-dirs* (constantly sequential-dirs))
+       seq-report (run-tests (find-tests sequential-dirs))
+       merged-report (combine-test-reports par-report seq-report)
+       {:keys [test pass fail error duration]} merged-report]
+    (println "Ran" test "tests in" duration "seconds")
+    (println (format "%d %s, %d %s"
+                     fail 
+                     (pluralize-failures fail) 
+                     error 
+                     (pluralize-errors error)))
+   (assoc merged-report :type :summary)))
 
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."
@@ -256,6 +291,10 @@
  [ns-str test-name]
  (let [the-test `(var ~(symbol (str ns-str "/" test-name)))]
     (clojure.test/test-vars [(eval the-test)])))
+
+(comment
+  (run-all-tests ["test"] ["test"])
+  (run-test "debug-middleware.core-test" "a-test"))
 
 (defn get-completions
  "Returns completions using Compliment."
