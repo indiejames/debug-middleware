@@ -262,13 +262,21 @@
     "error"
     "errors"))
 
+(defn run-tests-in-dirs
+  "Run tests in the given directories. The multithread? (default false)
+  flag determines whether or not the tests are run in parallel or one at 
+  a time."
+  ([dirs] (run-tests-in-dirs dirs false))
+  ([dirs multithread?]
+   (when (seq dirs)
+     (swap! debug-middleware.test/*test-dirs* (constantly dirs))
+     (run-tests (find-tests dirs) {:multithread? multithread?}))))
+
 (defn run-all-tests
  "Runs all tests in the project."
  [parallel-dirs sequential-dirs]
- (swap! debug-middleware.test/*test-dirs* (constantly parallel-dirs))
- (let [par-report (run-tests (find-tests parallel-dirs))
-       _ (swap! debug-middleware.test/*test-dirs* (constantly sequential-dirs))
-       seq-report (run-tests (find-tests sequential-dirs))
+ (let [par-report (run-tests-in-dirs parallel-dirs true)
+       seq-report (run-tests-in-dirs sequential-dirs)
        merged-report (combine-test-reports par-report seq-report)
        {:keys [test pass fail error duration]} merged-report]
     (println "Ran" test "tests in" duration "seconds")
@@ -293,7 +301,7 @@
     (clojure.test/test-vars [(eval the-test)])))
 
 (comment
-  (run-all-tests ["test"] ["test"])
+  (run-all-tests ["test"] [])
   (run-test "debug-middleware.core-test" "a-test"))
 
 (defn get-completions
