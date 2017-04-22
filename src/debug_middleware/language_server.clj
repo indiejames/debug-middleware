@@ -269,7 +269,6 @@
   ([dirs] (run-tests-in-dirs dirs false))
   ([dirs multithread?]
    (when (seq dirs)
-     (swap! debug-middleware.test/*test-dirs* (constantly dirs))
      (run-tests (find-tests dirs) {:multithread? multithread?}))))
 
 (defn run-all-tests
@@ -292,9 +291,6 @@
  [ns-str]
  (require (symbol ns-str))
  (run-tests (find-tests (symbol ns-str))))
-;  (binding [*ns* *ns* *e *e]
-;     (in-ns (symbol ns-str))
-;     (clojure.test/run-tests)))
 
 (defn run-test
  "Run a single test."

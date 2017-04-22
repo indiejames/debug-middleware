@@ -1,15 +1,18 @@
 (ns debug-middleware.core 
- (:require [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
-           [clojure.tools.nrepl.transport :as t]
-           [clojure.tools.nrepl.misc :refer [response-for returning]]
-           [clojure.tools.logging :refer :all]
-           [clojure.core.async :refer [thread <!!]]
-           [debug-middleware.jdi :as jdi]
-           [debug-middleware.language-server :as lang]
-           [cdt.ui :refer :all])
- (:import com.sun.jdi.Bootstrap
-          com.sun.jdi.AbsentInformationException
-          com.sun.jdi.request.BreakpointRequest))
+ (:require 
+  [cdt.ui :refer :all]
+  [cheshire.core :as json]
+  [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
+  [clojure.tools.nrepl.transport :as t]
+  [clojure.tools.nrepl.misc :refer [response-for returning]]
+  [clojure.tools.logging :refer :all]
+  [clojure.core.async :refer [thread <!!]]
+  [debug-middleware.jdi :as jdi]
+  [debug-middleware.language-server :as lang])
+ (:import 
+  [com.sun.jdi Bootstrap]
+  [com.sun.jdi AbsentInformationException]
+  [com.sun.jdi.request BreakpointRequest]))
  
 ;; Returns a handler for operation.
 (defmulti handle-msg (fn [handler msg] 
@@ -40,7 +43,6 @@
   [handler {:keys [op session interrupt-id id transport source-files] :as msg}]
   (let [full-src-files (map lang/get-src-path source-files)]
     (t/send transport (response-for msg :status :done :paths full-src-files)))) 
-   
   
 (defmethod handle-msg "get-event"
  [handler {:keys [op session interrup-id id transport] :as msg}]
@@ -137,9 +139,9 @@
    (t/send transport (response-for msg :status :done :doc "Failed to retrieve signatures")))))
 
 (defmethod handle-msg "run-all-tests"
- [handler {:keys [op session interrupt-id transport] :as msg}]
- (let [{:keys [out test-out]} (lang/run-all-tests)]
-   (t/send transport (response-for msg :status :done :out out :test-out test-out))))
+ [handler {:keys [op session interrupt-id sync-dirs par-dirs transport] :as msg}]
+ (let [report (lang/run-all-tests par-dirs sync-dirs)]
+   (t/send transport (response-for msg :status :done :report (json/generate-string report)))))
 
 (defmethod handle-msg "run-tests-in-namespace"
  [handler {:keys [op session interrupt-id transport ns] :as msg}]
@@ -290,7 +292,7 @@
                 {:doc "Run all the tests in the project."
                  :requires {}
                  :returns {"result" 
-                           "A map containing :status :done or :error with a list of errors, :out containing all printed output, and :test-out, containing output from tests."}}
+                           "A map containing :status :done or :error with a list of errors, :report - a map containing a summery of the test resutls."}}
              "run-test"
                 {:doc "Run a single test."
                  :requires {"ns" "The namespace containing the test"
