@@ -290,19 +290,26 @@
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."
  [ns-str]
- (binding [*ns* *ns* *e *e]
-    (in-ns (symbol ns-str))
-    (clojure.test/run-tests)))
+ (require (symbol ns-str))
+ (run-tests (find-tests (symbol ns-str))))
+;  (binding [*ns* *ns* *e *e]
+;     (in-ns (symbol ns-str))
+;     (clojure.test/run-tests)))
 
 (defn run-test
  "Run a single test."
  [ns-str test-name]
+ (require (symbol ns-str))
  (let [the-test `(var ~(symbol (str ns-str "/" test-name)))]
-    (clojure.test/test-vars [(eval the-test)])))
+    (run-tests (find-tests (eval the-test)))))
+    ; (clojure.test/test-vars [(eval the-test)])))
 
 (comment
   (run-all-tests ["test"] [])
-  (run-test "debug-middleware.core-test" "a-test"))
+  (run-test "debug-middleware.core-test" "a-test")
+  (run-tests-in-namespace "debug-middleware.core-test")
+  (require 'debug-middleware.core-test)
+  (run-tests (find-tests (symbol "debug-middleware.core-test"))))
 
 (defn get-completions
  "Returns completions using Compliment."

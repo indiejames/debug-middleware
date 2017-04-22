@@ -92,7 +92,7 @@
                                        (str/starts-with? cl-name "clojure.lang.MultiFn")))
                                 (.getStackTrace (Thread/currentThread)))
                               (:file m))
-        file (resolve-file test-dirs file)
+        ; file (if (seq test-dirs) (resolve-file test-dirs file) file)
         m (assoc m :file file)
         fail-count (:fail @t/*report-counters*)]
     (t/with-test-out
@@ -118,7 +118,7 @@
                                        (str/starts-with? cl-name "clojure.lang.MultiFn")))
                                 (.getStackTrace (Thread/currentThread)))
                               (:file m))
-        file (resolve-file test-dirs file)
+        ; file (if (seq test-dirs) (resolve-file test-dirs file) file)
         m (assoc m :file file)
         error-count (:error @t/*report-counters*)]
     (t/with-test-out
