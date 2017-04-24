@@ -11,6 +11,15 @@
    [io.aviso.repl :as repl]
    [puget.printer :as puget]))
 
+(def report-data
+  "Atom holding the data for tests that fail/error"
+  (atom {:fail []
+         :error []}))
+
+(defn- save-report!
+  "Save a failue or error report in the report-data atom."
+  [failure type]
+ (swap! report-data (fn [rep-data] (update-in rep-data [type] #(conj % failure)))))
 
 (def cprint-options
   "Options to use when color pretty printing with puget"
@@ -40,6 +49,18 @@
     :class-delimiter [:magenta]
     :class-name      [:magenta]}})
 
+(defn- failure-str
+  "Returns a string with failure information."
+  [m]
+  (with-out-str
+    (do
+      (when-let [message (:message m)] (println message))
+      (println "expected:" (puget/cprint-str (:expected m) cprint-options))
+      (println "  actual:" (puget/cprint-str (first  (:actual m)) cprint-options))
+      (let [diff-minus (-> m :diffs first (nth 1) first)
+            diff-plus (-> m :diffs first (nth 1) (nth 1))]
+        (println "    diff: -" (puget/cprint-str diff-minus cprint-options))
+        (println "          +" (puget/cprint-str diff-plus cprint-options))))))
 
 (defmethod report :fail
   [m]
@@ -47,11 +68,18 @@
     (t/with-test-out
       (t/inc-report-counter :fail)
       (println (str "# FAIL-START " fail-count " #############################################"))
-      (println "\nFAIL in" (t/testing-vars-str m))
+      (println (str (:error pretty/*fonts*) "FAIL" (:reset pretty/*fonts*) " in")  (t/testing-vars-str m))
       (when (seq t/*testing-contexts*) (println (t/testing-contexts-str)))
       (when-let [message (:message m)] (println message))
       (println "expected:" (puget/cprint-str (:expected m) cprint-options))
-      (println "  actual:" (puget/cprint-str (:actual m) cprint-options))
+      (println "  actual:" (puget/cprint-str (first  (:actual m)) cprint-options))
+      (let [diff-minus (-> m :diffs first (nth 1) first)
+            diff-plus (-> m :diffs first (nth 1) (nth 1))
+            failure-report {:source (t/testing-vars-str m)
+                            :description (failure-str m)}]
+        (println "    diff: -" (puget/cprint-str diff-minus cprint-options))
+        (println "          +" (puget/cprint-str diff-plus cprint-options))
+        (save-report! failure-report :fail))
       (println (str "# FAIL-END " fail-count " ###############################################")))))
 
 (defmethod report :error 
@@ -75,4 +103,7 @@
   "Run tests in the dirs given the the collection. Stores the dirs in the eftest 
   *context* atom to help with resolving file paths."
   [dirs]
-  (run-tests (find-tests dirs)))
+  (run-tests (find-tests dirs))
+
+  (comment
+    (my-run-tests ["test"])))

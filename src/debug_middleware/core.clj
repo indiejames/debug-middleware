@@ -8,7 +8,8 @@
   [clojure.tools.logging :refer :all]
   [clojure.core.async :refer [thread <!!]]
   [debug-middleware.jdi :as jdi]
-  [debug-middleware.language-server :as lang])
+  [debug-middleware.language-server :as lang]
+  [pjstadig.humane-test-output :as humane-output])
  (:import 
   [com.sun.jdi Bootstrap]
   [com.sun.jdi AbsentInformationException]
@@ -215,6 +216,7 @@
 (defn debug-middleware
  "Lein middleware to handle debug requests." 
  [handler]
+ (humane-output/activate!)
  (fn [msg]
   (handle-msg handler msg)))
     

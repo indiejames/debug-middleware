@@ -4,7 +4,7 @@
            [clojure.repl :as repl]
            [clojure.string :as str]
            [clojure.java.shell :as shell]
-           [debug-middleware.test]
+           [debug-middleware.test :as debug-test]
            [eftest.runner :refer [find-tests run-tests]]
            [slam.hound :refer [reconstruct]]
            [compliment.core])
@@ -278,13 +278,13 @@
        seq-report (run-tests-in-dirs sequential-dirs)
        merged-report (combine-test-reports par-report seq-report)
        {:keys [test pass fail error duration]} merged-report]
-    (println "Ran" test "tests in" duration "seconds")
+    (println "Ran" test "tests in" (/ duration 1000.0) "seconds")
     (println (format "%d %s, %d %s"
                      fail 
                      (pluralize-failures fail) 
                      error 
                      (pluralize-errors error)))
-   (assoc merged-report :type :summary)))
+   @debug-test/report-data))
 
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."
@@ -298,8 +298,7 @@
  (require (symbol ns-str))
  (let [the-test `(var ~(symbol (str ns-str "/" test-name)))]
     (run-tests (find-tests (eval the-test)))))
-    ; (clojure.test/test-vars [(eval the-test)])))
-
+    
 (comment
   (run-all-tests ["test"] [])
   (run-test "debug-middleware.core-test" "a-test")

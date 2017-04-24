@@ -10,6 +10,11 @@
   (testing "Boolean"
     (is (= false true))))
 
-(deftest exception-test
-  (testing "Exceptions"
-    (is (= true (throw (Exception. "An exception"))))))
+(deftest map-test
+  (testing "Map"
+    (is (= {:a "A" :b "B" :c [1 2 3]}
+           {:a "A" :b "b" :c [0 2 3]}))))
+
+; (deftest exception-test
+;   (testing "Exceptions"
+;     (is (= true (throw (Exception. "An exception"))))))

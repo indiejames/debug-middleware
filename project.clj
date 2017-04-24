@@ -17,4 +17,5 @@
                  [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/clojure "1.8.0"]
                  [org.clojure/core.async "0.2.374"]
+                 [pjstadig/humane-test-output "0.8.1"]
                  [slamhound "1.5.5"]])
