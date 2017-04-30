@@ -16,6 +16,11 @@
   (atom {:fail []
          :error []}))
 
+(defn reset-report-data!
+  "Reset the report data atom to empty vectors."
+  []
+  (swap! report-data (constantly {:fail [] :error []})))
+
 (defn- save-report!
   "Save a failue or error report in the report-data atom."
   [failure type]
@@ -62,12 +67,26 @@
         (println "    diff: -" (puget/cprint-str diff-minus cprint-options))
         (println "          +" (puget/cprint-str diff-plus cprint-options))))))
 
+(defn- error-str 
+  "Returns a stirng with error information."
+  [{:keys [message expected actual] :as m}]
+  (with-out-str
+    (do
+      (when (seq t/*testing-contexts*) (println (t/testing-contexts-str)))
+      (when message (println message))
+      (println "expected:" (puget/cprint-str expected cprint-options))
+      (print "  actual: ")
+      (if (instance? Throwable actual)
+        (binding [exception/*traditional* true, exception/*fonts* pretty/*fonts*]
+          (repl/pretty-print-stack-trace actual t/*stack-trace-depth*))
+        (puget/cprint actual cprint-options)))))
+      
+
 (defmethod report :fail
   [m]
   (let [fail-count (:fail @t/*report-counters*)]
     (t/with-test-out
       (t/inc-report-counter :fail)
-      (println (str "# FAIL-START " fail-count " #############################################"))
       (println (str (:error pretty/*fonts*) "FAIL" (:reset pretty/*fonts*) " in")  (t/testing-vars-str m))
       (when (seq t/*testing-contexts*) (println (t/testing-contexts-str)))
       (when-let [message (:message m)] (println message))
@@ -79,15 +98,13 @@
                             :description (failure-str m)}]
         (println "    diff: -" (puget/cprint-str diff-minus cprint-options))
         (println "          +" (puget/cprint-str diff-plus cprint-options))
-        (save-report! failure-report :fail))
-      (println (str "# FAIL-END " fail-count " ###############################################")))))
+        (save-report! failure-report :fail)))))
 
 (defmethod report :error 
   [{:keys [message expected actual] :as m}]
   (let [error-count (:error @t/*report-counters*)]
     (t/with-test-out
       (t/inc-report-counter :error)
-      (println (str "# ERROR-START " error-count " #############################################"))
       (println (str (:error pretty/*fonts*) "ERROR" (:reset pretty/*fonts*) " in") (t/testing-vars-str m))
       (when (seq t/*testing-contexts*) (println (t/testing-contexts-str)))
       (when message (println message))
@@ -97,7 +114,9 @@
         (binding [exception/*traditional* true, exception/*fonts* pretty/*fonts*]
           (repl/pretty-print-stack-trace actual t/*stack-trace-depth*))
         (puget/cprint actual cprint-options))
-      (println (str "# ERROR-END " error-count " ###############################################")))))
+      (let [error-report {:source (t/testing-vars-str m)
+                          :description (error-str m)}]
+        (save-report! error-report :error)))))
 
 (defn my-run-tests
   "Run tests in the dirs given the the collection. Stores the dirs in the eftest 

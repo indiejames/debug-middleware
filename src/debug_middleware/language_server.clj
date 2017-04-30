@@ -274,6 +274,7 @@
 (defn run-all-tests
  "Runs all tests in the project."
  [parallel-dirs sequential-dirs]
+ (debug-test/reset-report-data!)
  (let [par-report (run-tests-in-dirs parallel-dirs true)
        seq-report (run-tests-in-dirs sequential-dirs)
        merged-report (combine-test-reports par-report seq-report)
@@ -289,15 +290,19 @@
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."
  [ns-str]
+ (debug-test/reset-report-data!)
  (require (symbol ns-str))
- (run-tests (find-tests (symbol ns-str))))
+ (run-tests (find-tests (symbol ns-str)))
+ @debug-test/report-data)
 
 (defn run-test
  "Run a single test."
  [ns-str test-name]
+ (debug-test/reset-report-data!)
  (require (symbol ns-str))
  (let [the-test `(var ~(symbol (str ns-str "/" test-name)))]
-    (run-tests (find-tests (eval the-test)))))
+    (run-tests (find-tests (eval the-test))))
+ @debug-test/report-data)
     
 (comment
   (run-all-tests ["test"] [])

@@ -146,11 +146,13 @@
 
 (defmethod handle-msg "run-tests-in-namespace"
  [handler {:keys [op session interrupt-id transport ns] :as msg}]
- (lang/run-tests-in-namespace ns))
+ (let [report (lang/run-tests-in-namespace ns)]
+   (t/send transport (response-for msg :status :done :report (json/generate-string report)))))
 
 (defmethod handle-msg "run-test"
  [handler {:keys [op session interrup-id transport ns test-name] :as msg}]
- (lang/run-test ns test-name))
+ (let [report (lang/run-test ns test-name)]
+   (t/send transport (response-for msg :status :done :report (json/generate-string report)))))
 
 (defmethod handle-msg "reval"
   [handler {:keys [op session interrupt-id id transport frame-num form] :as msg}]
@@ -292,14 +294,21 @@
                  :returns {"result" "A map containing :msg :ok or :error msg with :status :done"}}
              "run-all-tests"
                 {:doc "Run all the tests in the project."
-                 :requires {}
+                 :requires {"par-dirs" "Directories containing tests to be run in parallel"
+                            "sync-dirs" "Director"}
                  :returns {"result" 
                            "A map containing :status :done or :error with a list of errors, :report - a map containing a summery of the test resutls."}}
+             "run-tests-in-namespace"
+               {:doc "Run all tests in the given namespace."
+                :requires {"ns" "The namespace for the tests"}
+                :returns {"result"
+                          "A map cointaining :status :done or :error with a list of errors, :report - a map containing a summery of the test resutls."}}
              "run-test"
                 {:doc "Run a single test."
                  :requires {"ns" "The namespace containing the test"
                             "test-name" "The name of the test to be executed."}
-                 :returns {"result" "A map containing :status :done or :error with a list of errors."}}
+                 :returns {"result"
+                           "A map cointaining :status :done or :error with a list of errors, :report - a map containing a summery of the test resutls."}}
              "pid"
                 {:doc "Returns the process id for the JVM process."
                  :requires {}
