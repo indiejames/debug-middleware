@@ -140,8 +140,8 @@
    (t/send transport (response-for msg :status :done :doc "Failed to retrieve signatures")))))
 
 (defmethod handle-msg "run-all-tests"
- [handler {:keys [op session interrupt-id sync-dirs par-dirs transport] :as msg}]
- (let [report (lang/run-all-tests par-dirs sync-dirs)]
+ [handler {:keys [op session interrupt-id seq-dirs par-dirs transport] :as msg}]
+ (let [report (lang/run-all-tests par-dirs seq-dirs)]
    (t/send transport (response-for msg :status :done :report (json/generate-string report)))))
 
 (defmethod handle-msg "run-tests-in-namespace"

@@ -11,6 +11,8 @@
    [io.aviso.repl :as repl]
    [puget.printer :as puget]))
 
+(def ^:private clear-line (apply str "\r" (repeat 80 " ")))
+
 (def report-data
   "Atom holding the data for tests that fail/error"
   (atom {:fail []
@@ -87,7 +89,8 @@
   (let [fail-count (:fail @t/*report-counters*)]
     (t/with-test-out
       (t/inc-report-counter :fail)
-      (println (str (:error pretty/*fonts*) "FAIL" (:reset pretty/*fonts*) " in")  (t/testing-vars-str m))
+      (println clear-line)
+      (println (str (:fail pretty/*fonts*) "FAIL" (:reset pretty/*fonts*) " in") (t/testing-vars-str m))
       (when (seq t/*testing-contexts*) (println (t/testing-contexts-str)))
       (when-let [message (:message m)] (println message))
       (println "expected:" (puget/cprint-str (:expected m) cprint-options))
@@ -117,12 +120,3 @@
       (let [error-report {:source (t/testing-vars-str m)
                           :description (error-str m)}]
         (save-report! error-report :error)))))
-
-(defn my-run-tests
-  "Run tests in the dirs given the the collection. Stores the dirs in the eftest 
-  *context* atom to help with resolving file paths."
-  [dirs]
-  (run-tests (find-tests dirs))
-
-  (comment
-    (my-run-tests ["test"])))

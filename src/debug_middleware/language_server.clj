@@ -5,6 +5,7 @@
            [clojure.string :as str]
            [clojure.java.shell :as shell]
            [debug-middleware.test :as debug-test]
+           [eftest.report.pretty :as pretty]
            [eftest.runner :refer [find-tests run-tests]]
            [slam.hound :refer [reconstruct]]
            [compliment.core])
@@ -275,16 +276,18 @@
  "Runs all tests in the project."
  [parallel-dirs sequential-dirs]
  (debug-test/reset-report-data!)
- (let [par-report (run-tests-in-dirs parallel-dirs true)
+ (let [_ (println "Running tests in " parallel-dirs)
+       par-report (run-tests-in-dirs parallel-dirs true)
+       _ (println "Running tests in " sequential-dirs)
        seq-report (run-tests-in-dirs sequential-dirs)
        merged-report (combine-test-reports par-report seq-report)
        {:keys [test pass fail error duration]} merged-report]
     (println "Ran" test "tests in" (/ duration 1000.0) "seconds")
-    (println (format "%d %s, %d %s"
-                     fail 
-                     (pluralize-failures fail) 
-                     error 
-                     (pluralize-errors error)))
+    (println (str (:fail pretty/*fonts*) (format "%d %s, %d %s"
+                                                 fail 
+                                                 (pluralize-failures fail) 
+                                                 error 
+                                                 (pluralize-errors error))))
    @debug-test/report-data))
 
 (defn run-tests-in-namespace
