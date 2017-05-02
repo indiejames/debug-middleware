@@ -281,13 +281,16 @@
        _ (println "Running tests in " sequential-dirs)
        seq-report (run-tests-in-dirs sequential-dirs)
        merged-report (combine-test-reports par-report seq-report)
-       {:keys [test pass fail error duration]} merged-report]
+       {:keys [test pass fail error duration]} merged-report
+       color (if (= 0 fail error)
+                 (:pass pretty/*fonts*)
+                 (:fail pretty/*fonts*))]
     (println "Ran" test "tests in" (/ duration 1000.0) "seconds")
-    (println (str (:fail pretty/*fonts*) (format "%d %s, %d %s"
-                                                 fail 
-                                                 (pluralize-failures fail) 
-                                                 error 
-                                                 (pluralize-errors error))))
+    (println (str color (format "%d %s, %d %s"
+                                fail 
+                                (pluralize-failures fail) 
+                                error 
+                                (pluralize-errors error))))
    @debug-test/report-data))
 
 (defn run-tests-in-namespace
