@@ -13,6 +13,12 @@
 
 (def ^:private clear-line (apply str "\r" (repeat 80 " ")))
 
+(defn- testing-vars-str [{:keys [file line]}]
+  (let [test-var (first t/*testing-vars*)]
+    (str (:clojure-frame pretty/*fonts*) (-> test-var meta :ns ns-name) "/"
+         (:function-name pretty/*fonts*) (-> test-var meta :name) (:reset pretty/*fonts*)
+         " (" (:source pretty/*fonts*) file ":" line (:reset pretty/*fonts*) ")")))
+
 (def report-data
   "Atom holding the data for tests that fail/error"
   (atom {:fail []
@@ -90,7 +96,7 @@
     (t/with-test-out
       (t/inc-report-counter :fail)
       (println clear-line)
-      (println (str (:fail pretty/*fonts*) "FAIL" (:reset pretty/*fonts*) " in") (t/testing-vars-str m))
+      (println (str (:fail pretty/*fonts*) "FAIL" (:reset pretty/*fonts*) " in") (testing-vars-str m))
       (when (seq t/*testing-contexts*) (println (t/testing-contexts-str)))
       (when-let [message (:message m)] (println message))
       (println "expected:" (puget/cprint-str (:expected m) cprint-options))
@@ -108,7 +114,8 @@
   (let [error-count (:error @t/*report-counters*)]
     (t/with-test-out
       (t/inc-report-counter :error)
-      (println (str (:error pretty/*fonts*) "ERROR" (:reset pretty/*fonts*) " in") (t/testing-vars-str m))
+      (println clear-line)
+      (println (str (:error pretty/*fonts*) "ERROR" (:reset pretty/*fonts*) " in") (testing-vars-str m))
       (when (seq t/*testing-contexts*) (println (t/testing-contexts-str)))
       (when message (println message))
       (println "expected:" (puget/cprint-str expected cprint-options))
@@ -117,6 +124,6 @@
         (binding [exception/*traditional* true, exception/*fonts* pretty/*fonts*]
           (repl/pretty-print-stack-trace actual t/*stack-trace-depth*))
         (puget/cprint actual cprint-options))
-      (let [error-report {:source (t/testing-vars-str m)
+      (let [error-report {:source (testing-vars-str m)
                           :description (error-str m)}]
         (save-report! error-report :error)))))

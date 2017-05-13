@@ -242,9 +242,11 @@
   (refresh))
 
 (defn- combine-test-reports
-  "Combine thre results from multiple test runs into a single report"
+  "Combine the results from multiple test runs into a single report"
   [& reports]
-  (let [reports (map #(dissoc % :type) reports)]
+  (println reports)
+  (let [reports (filter seq reports)
+        reports (map #(dissoc % :type) reports)]
     (apply merge-with + reports)))
 
 (defn- pluralize-failures
@@ -272,26 +274,54 @@
    (when (seq dirs)
      (run-tests (find-tests dirs) {:multithread? multithread?}))))
 
+(defn- fix-error-paths
+  "Fix the paths in error reports. Often these link to the place
+  where an exception occurred, not to the test that caused it. This
+  function changes these to start of the test."
+  [report-data]
+  (update-in 
+   report-data 
+   [:error]
+   (fn [errors]
+     (map (fn [error]
+            (let [{:keys [source]} error
+                  matcher (re-matcher #"\((.*?)/(.*?)\) \((.*?):(.*?)\)")
+                  [_ test-namespace test-str rep-file rep-line] (re-find matcher)
+                  {:keys [path line]} (find-definition test-namespace test-str)]
+              (if (str/ends-with? path rep-file)
+               ;; reported file matches test file
+               error
+               ;; reported file does not match test file, so use test file
+               (-> error 
+                   (assoc :source path)
+                   (assoc :line line)))))
+          errors))))
+               
 (defn run-all-tests
  "Runs all tests in the project."
  [parallel-dirs sequential-dirs]
  (debug-test/reset-report-data!)
  (let [_ (println "Running tests in " parallel-dirs)
        par-report (run-tests-in-dirs parallel-dirs true)
+       _ (println "PAR REPORT " par-report)
        _ (println "Running tests in " sequential-dirs)
        seq-report (run-tests-in-dirs sequential-dirs)
+       _ (println "SEQ REPORT " seq-report)
        merged-report (combine-test-reports par-report seq-report)
        {:keys [test pass fail error duration]} merged-report
        color (if (= 0 fail error)
                  (:pass pretty/*fonts*)
                  (:fail pretty/*fonts*))]
-    (println "Ran" test "tests in" (/ duration 1000.0) "seconds")
+    (println (format "Ran %d test(s) in %.3f seconds" test (/ duration 1000.0)))
     (println (str color (format "%d %s, %d %s"
                                 fail 
                                 (pluralize-failures fail) 
                                 error 
                                 (pluralize-errors error))))
-   @debug-test/report-data))
+   (let [report-data @debug-test/report-data
+         rval (fix-error-paths @debug-test/report-data)
+         x (assoc rval :x 1)]
+     rval)))
 
 (defn run-tests-in-namespace
  "Runs all the tests in a single namespace."

@@ -141,8 +141,13 @@
 
 (defmethod handle-msg "run-all-tests"
  [handler {:keys [op session interrupt-id seq-dirs par-dirs transport] :as msg}]
- (let [report (lang/run-all-tests par-dirs seq-dirs)]
-   (t/send transport (response-for msg :status :done :report (json/generate-string report)))))
+ (try
+   (let [report (lang/run-all-tests par-dirs seq-dirs)]
+     (println "ALL TESTS FINISHED")
+     (t/send transport (response-for msg :status :done :report (json/generate-string report))))
+   (catch Exception e
+     (println "PROBLEM RUNNING TESTS")
+     (println e))))
 
 (defmethod handle-msg "run-tests-in-namespace"
  [handler {:keys [op session interrupt-id transport ns] :as msg}]
