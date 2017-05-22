@@ -146,8 +146,11 @@
      (println "ALL TESTS FINISHED")
      (t/send transport (response-for msg :status :done :report (json/generate-string report))))
    (catch Exception e
-     (println "PROBLEM RUNNING TESTS")
-     (println e))))
+     (binding [*out* *err*]
+       (println "PROBLEM RUNNING TESTS")
+       (println (.getMessage e)))
+     (.printStackTrace e)
+     (t/send transport (response-for msg :status :error :err-msg (.getMessage e))))))
 
 (defmethod handle-msg "run-tests-in-namespace"
  [handler {:keys [op session interrupt-id transport ns] :as msg}]

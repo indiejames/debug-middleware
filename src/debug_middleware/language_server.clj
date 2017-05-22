@@ -301,12 +301,11 @@
  "Runs all tests in the project."
  [parallel-dirs sequential-dirs]
  (debug-test/reset-report-data!)
- (let [_ (println "Running tests in " parallel-dirs)
+ (println "Runnning all tests ............................................................")
+ (let [_ (println "Running parallel tests")
        par-report (run-tests-in-dirs parallel-dirs true)
-       _ (println "PAR REPORT " par-report)
-       _ (println "Running tests in " sequential-dirs)
+       _ (println "Running sequential tests" sequential-dirs)
        seq-report (run-tests-in-dirs sequential-dirs)
-       _ (println "SEQ REPORT " seq-report)
        merged-report (combine-test-reports par-report seq-report)
        {:keys [test pass fail error duration]} merged-report
        color (if (= 0 fail error)
@@ -327,9 +326,13 @@
  "Runs all the tests in a single namespace."
  [ns-str]
  (debug-test/reset-report-data!)
+ (println "Running tests in namespace [" ns-str "] ..................................")
  (require (symbol ns-str))
- (run-tests (find-tests (symbol ns-str)))
- @debug-test/report-data)
+ (run-tests (find-tests (symbol ns-str)) {:multithread? false})
+ (let [report-data @debug-test/report-data
+         rval (fix-error-paths @debug-test/report-data)
+         x (assoc rval :x 1)]
+     rval))
 
 (defn run-test
  "Run a single test."
@@ -338,7 +341,10 @@
  (require (symbol ns-str))
  (let [the-test `(var ~(symbol (str ns-str "/" test-name)))]
     (run-tests (find-tests (eval the-test))))
- @debug-test/report-data)
+ (let [report-data @debug-test/report-data
+         rval (fix-error-paths @debug-test/report-data)
+         x (assoc rval :x 1)]
+     rval))
     
 (comment
   (run-all-tests ["test"] [])
