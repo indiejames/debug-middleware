@@ -7,6 +7,7 @@
            [debug-middleware.test :as debug-test]
            [eftest.report.pretty :as pretty]
            [eftest.runner :refer [find-tests run-tests]]
+           [io.aviso.ansi :as ansi]
            [slam.hound :refer [reconstruct]]
            [compliment.core])
  (:import java.io.PushbackReader
@@ -285,12 +286,14 @@
    (fn [errors]
      (map (fn [error]
             (let [{:keys [source]} error
-                  matcher (re-matcher #"\((.*?)/(.*?)\) \((.*?):(.*?)\)")
+                  source (ansi/strip-ansi source)
+                  matcher (re-matcher #"(.*?)/(.*?) \((.*?):(\d+)\)" source)
                   [_ test-namespace test-str rep-file rep-line] (re-find matcher)
                   {:keys [path line]} (find-definition test-namespace test-str)]
               (if (str/ends-with? path rep-file)
                ;; reported file matches test file
-               error
+               (-> error
+                   (update-in [:source] ansi/strip-ansi))
                ;; reported file does not match test file, so use test file
                (-> error 
                    (assoc :source path)

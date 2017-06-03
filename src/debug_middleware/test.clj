@@ -76,7 +76,7 @@
         (println "          +" (puget/cprint-str diff-plus cprint-options))))))
 
 (defn- error-str 
-  "Returns a stirng with error information."
+  "Returns a string with error information."
   [{:keys [message expected actual] :as m}]
   (with-out-str
     (do
