@@ -13,6 +13,7 @@
            com.sun.jdi.BooleanValue
            com.sun.jdi.StringReference
            com.sun.jdi.LongValue
+           com.sun.jdi.VirtualMachine
            com.sun.tools.jdi.LongValueImpl
            com.sun.tools.jdi.ObjectReferenceImpl
            com.sun.tools.jdi.StringReferenceImpl
@@ -254,6 +255,7 @@
  [host port]
  (attach host port 1000)
  (when  (vm)
+   (.setDefaultStratum (vm) "Clojure")
    (set-handler breakpoint-handler handle-breakpoint-event)
    (set-handler exception-handler handle-exception-event)
    (set-handler step-handler handle-step-event)))
