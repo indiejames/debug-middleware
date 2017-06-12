@@ -317,6 +317,9 @@
                             "test-name" "The name of the test to be executed."}
                  :returns {"result"
                            "A map cointaining :status :done or :error with a list of errors, :report - a map containing a summery of the test resutls."}}
+             "add-trace-ns"
+                {:doc "Trace code execution in one or more namespaces."
+                 :requires {"ns-regex"}}
              "pid"
                 {:doc "Returns the process id for the JVM process."
                  :requires {}
