@@ -219,6 +219,20 @@
   (let [source (lang/fix-ns path)]
     (t/send transport (response-for msg :status :done :value source))))
 
+(defmethod handle-msg "trace"
+  [handler {:keys [op session interrupt-id id transport regex] :as msg}]
+  (try (lang/trace! regex)
+    (t/send transport (response-for msg :status :done :msg :ok))
+    (catch Exception e
+      (t/send transport (response-for msg :status :error :msg (.getMessage e))))))
+
+(defmethod handle-msg "stop-trace"
+  [handler {:keys [op session interrupt-id id transport] :as msg}]
+  (try (lang/stop-trace!)
+    (t/send transport (response-for msg :status :done :msg :ok))
+    (catch Exception e
+      (t/send transport (response-for msg :status :error :msg (.getMessage e))))))
+
 (defmethod handle-msg :default 
   [handler msg]
   (handler msg))
@@ -317,9 +331,14 @@
                             "test-name" "The name of the test to be executed."}
                  :returns {"result"
                            "A map cointaining :status :done or :error with a list of errors, :report - a map containing a summery of the test resutls."}}
-             "add-trace-ns"
+             "trace"
                 {:doc "Trace code execution in one or more namespaces."
-                 :requires {"ns-regex"}}
+                 :requires {"regex" "A regular expression matching the namespaces to trace."}
+                 :returns {"result" "A map containing :msg :ok or :error msg with :status :done"}}
+             "stop-trace"
+                {:doc "Stop tracing code execution."
+                 :requires {}
+                 :returns {"result" "A map containing :msg :ok or :error msg with :status :done"}}
              "pid"
                 {:doc "Returns the process id for the JVM process."
                  :requires {}

@@ -1,15 +1,17 @@
 (ns debug-middleware.language-server
- (:require [cljfmt.core :as clj-fmt]
-           [clojure.java.io :as io]
-           [clojure.repl :as repl]
-           [clojure.string :as str]
-           [clojure.java.shell :as shell]
-           [debug-middleware.test :as debug-test]
-           [eftest.report.pretty :as pretty]
-           [eftest.runner :refer [find-tests run-tests]]
-           [io.aviso.ansi :as ansi]
-           [slam.hound :refer [reconstruct]]
-           [compliment.core])
+ (:require 
+  [cljfmt.core :as clj-fmt]
+  [clojure.java.io :as io]
+  [clojure.java.shell :as shell]
+  [clojure.repl :as repl]
+  [clojure.string :as str]
+  [clojure.tools.trace :as trace]
+  [compliment.core]
+  [debug-middleware.test :as debug-test]
+  [eftest.report.pretty :as pretty]
+  [eftest.runner :refer [find-tests run-tests]]
+  [io.aviso.ansi :as ansi]
+  [slam.hound :refer [reconstruct]])
  (:import java.io.PushbackReader
           java.io.ByteArrayOutputStream
           java.io.StringReader
@@ -18,6 +20,10 @@
           java.io.OutputStreamWriter
           java.lang.management.ManagementFactory
           java.util.jar.JarFile))
+
+(def traced-namespaces-regex
+  "The regular expression matching namespaces to trace"
+  (atom nil))
 
 (defn make-proxy
  "Returns a proxy for a PushbackReader that returns a count of the number of characters
@@ -384,3 +390,35 @@
 (defn reformat-string
   [code opts]
   (clj-fmt/reformat-string code opts))
+
+(defn stop-trace!
+  "Stop tracing namespaces."
+  []
+  (when @traced-namespaces-regex
+    ;; find all the namespaces that match the regex and start tracing them
+    (doseq [n (all-ns)]
+      (when (re-matches @traced-namespaces-regex (ns-name n))
+        (trace/untrace-ns n)))
+    ;; clear the stored regex
+    (swap! traced-namespaces-regex (constantly nil))))
+
+(defn trace!
+  [ns-regex-str]
+  ;; clear any existing tracing
+  (stop-trace!)
+  (let [ns-regex (re-pattern ns-regex-str)]
+    ;; store the regex so we can clear the tracing later
+    (swap! traced-namespaces-regex (constantly ns-regex))
+    ;; start tracing
+    (doseq [n (all-ns)]
+      (when (re-matches ns-regex (str (ns-name n)))
+        (trace/trace-ns n)))))
+  
+  
+(defn trace-test
+  ""
+  []
+  4)
+
+(comment
+  (trace! "debug-middleware\\..*"))
