@@ -5,9 +5,9 @@
   [clojure.java.shell :as shell]
   [clojure.repl :as repl]
   [clojure.string :as str]
-  [clojure.tools.trace :as trace]
   [compliment.core]
   [debug-middleware.test :as debug-test]
+  [debug-middleware.trace :as trace]
   [eftest.report.pretty :as pretty]
   [eftest.runner :refer [find-tests run-tests]]
   [io.aviso.ansi :as ansi]
@@ -412,7 +412,7 @@
     ;; start tracing
     (doseq [n (all-ns)]
       (when (re-matches ns-regex (str (ns-name n)))
-        (trace/trace-ns n)))))
+        (trace/trace-ns* n)))))
   
   
 (defn trace-test
@@ -421,4 +421,5 @@
   4)
 
 (comment
-  (trace! "debug-middleware\\..*"))
+  (trace! "clojure\\.tools\\..*"))
+  
