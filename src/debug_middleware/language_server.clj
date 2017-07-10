@@ -392,19 +392,24 @@
   (clj-fmt/reformat-string code opts))
 
 (defn stop-trace!
-  "Stop tracing namespaces."
+  "Stop tracing namespaces and return the current trace."
   []
-  (when @traced-namespaces-regex
-    ;; find all the namespaces that match the regex and start tracing them
-    (doseq [n (all-ns)]
-      (when (re-matches @traced-namespaces-regex (ns-name n))
-        (trace/untrace-ns n)))
-    ;; clear the stored regex
-    (swap! traced-namespaces-regex (constantly nil))))
+  (println "STOPPING TRACE")
+  (if @traced-namespaces-regex
+    (do
+      ;; find all the namespaces that match the regex and start tracing them
+      (doseq [n (all-ns)]
+        (when (re-matches @traced-namespaces-regex (str (ns-name n)))
+          (trace/untrace-ns* n)))
+      ;; clear the stored regex
+      (swap! traced-namespaces-regex (constantly nil))
+      @trace/trace-tree-atom)
+    {}))
 
 (defn trace!
   [ns-regex-str]
   ;; clear any existing tracing
+  (trace/reset-trace-tree)
   (stop-trace!)
   (let [ns-regex (re-pattern ns-regex-str)]
     ;; store the regex so we can clear the tracing later
@@ -413,7 +418,6 @@
     (doseq [n (all-ns)]
       (when (re-matches ns-regex (str (ns-name n)))
         (trace/trace-ns* n)))))
-  
   
 (defn trace-test
   ""

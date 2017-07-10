@@ -228,9 +228,11 @@
 
 (defmethod handle-msg "stop-trace"
   [handler {:keys [op session interrupt-id id transport] :as msg}]
-  (try (lang/stop-trace!)
-    (t/send transport (response-for msg :status :done :msg :ok))
+  (try 
+    (let [trace (lang/stop-trace!)]
+      (t/send transport (response-for msg :status :done :trace (pr-str trace))))
     (catch Exception e
+      (.printStackTrace e)
       (t/send transport (response-for msg :status :error :msg (.getMessage e))))))
 
 (defmethod handle-msg :default 

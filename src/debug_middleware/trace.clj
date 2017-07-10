@@ -8,6 +8,15 @@
 (def ^{:doc "Current stack depth of traced function calls." :private true :dynamic true}
       *trace-depth* 0)
 
+(def trace-tree-atom
+  "tree used for storing trace element"
+  (atom {}))
+
+(defn reset-trace-tree
+  "reset the trace tree to an empty trace"
+  []
+  (swap! trace-tree-atom (constantly {})))
+
 (def ^{:doc "Forms to ignore when tracing forms." :private true}
       ignored-form? '#{def quote var try monitor-enter monitor-exit assert})
     
@@ -40,11 +49,18 @@ affecting the result."
   "Traces a single call to a function f with args. 'name' is the
 symbol name of the function."
   [name f args]
-  (let [id (gensym "t")]
+  (let [id (gensym "t")
+        thread-name (.getName (java.lang.Thread/currentThread))]
     (tracer id (str (trace-indent) (pr-str (cons name args))))
     (let [value (binding [*trace-depth* (inc *trace-depth*)]
                   (apply f args))]
       (tracer id (str (trace-indent) "=> " (pr-str value)))
+      (swap! trace-tree-atom (fn [tree]
+                                 (let [node {:depth (inc *trace-depth*)
+                                             :value value
+                                             :fname name
+                                             :args args}]
+                                   (assoc-in tree [thread-name id] node))))
       value)))
 
 (defmacro deftrace
