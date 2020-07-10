@@ -2,9 +2,9 @@
  "Functions that wrap the JDI debugging code."
  (:require [cheshire.core :refer :all]
            [clojure.core.async :as async :refer [chan thread go >!]]
-           [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
-           [clojure.tools.nrepl.transport :as t]
-           [clojure.tools.nrepl.misc :refer [response-for returning]]
+           [nrepl.middleware :refer [set-descriptor!]]
+           [nrepl.transport :as t]
+           [nrepl.misc :refer [response-for returning]]
            [cdt.ui :refer :all])
  (:import com.sun.jdi.Bootstrap
            com.sun.jdi.request.EventRequest

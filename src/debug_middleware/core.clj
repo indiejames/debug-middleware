@@ -2,9 +2,9 @@
  (:require 
   [cdt.ui :refer :all]
   [cheshire.core :as json]
-  [clojure.tools.nrepl.middleware :refer [set-descriptor!]]
-  [clojure.tools.nrepl.transport :as t]
-  [clojure.tools.nrepl.misc :refer [response-for returning]]
+  [nrepl.middleware :refer [set-descriptor!]]
+  [nrepl.transport :as t]
+  [nrepl.misc :refer [response-for returning]]
   [clojure.tools.logging :refer :all]
   [clojure.core.async :refer [thread <!!]]
   [debug-middleware.jdi :as jdi]
